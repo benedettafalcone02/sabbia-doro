@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { generatePostazioni, calcolaStato, uid } from '../lib/data'
+import { generatePostazioni, uid } from '../lib/data'
 import { supabase } from '../lib/supabase'
 
 const initialDB = {
@@ -7,137 +7,100 @@ const initialDB = {
   clienti: [],
   prenotazioni: [],
   pagamenti: [],
+  loading: true,
 }
 
-// Semplice store globale condiviso via prop drilling (upgradable a Context/Zustand)
 export function useStore() {
   const [db, setDB] = useState(initialDB)
-  useEffect(() => {
-    loadOccupazioni()
-  }, [])
 
-  const updateDB = useCallback((updater) => {
-    setDB(prev => ({ ...prev, ...updater(prev) }))
-  }, [])
+  useEffect(() => { loadAll() }, [])
 
-  async function loadOccupazioni() {
-
-    const { data, error } = await supabase
-      .from('occupazioni')
-      .select('*')
-  
+  async function loadAll() {
+    const { data, error } = await supabase.from('occupazioni').select('*')
     if (error) {
-      console.error(error)
+      console.error('Supabase error:', error)
+      setDB(p => ({ ...p, loading: false }))
       return
     }
-  
+
     setDB(prev => {
-  
-      const nuovePostazioni = prev.postazioni.map(p => {
-  
-        const occupata = data.find(
-          o =>
-            o.numero === p.numero &&
-            o.tipo === p.tipo
+      // ── Postazioni aggiornate ──
+      const postazioni = prev.postazioni.map(p => {
+        const occ = data.find(o =>
+          Number(o.numero) === Number(p.numero) && o.tipo === p.tipo
         )
-  
-        if (!occupata) {
-          return {
-            ...p,
-            stato: 'libero'
-          }
-        }
-  
+        if (!occ) return { ...p, stato: 'libero', cliente: null, lettini: 0, sdraio: 0, regista: 0 }
         return {
           ...p,
-        
           stato: 'occupato',
-        
-          cliente: occupata.cliente || null,
-        
-          lettini: occupata.lettini || 0,
-        
-          sdraio: occupata.sdraio || 0,
-        
-          regista: occupata.regista || 0,
+          cliente: occ.cliente || null,
+          lettini: Number(occ.lettini) || 0,
+          sdraio:  Number(occ.sdraio)  || 0,
+          regista: Number(occ.regista) || 0,
         }
       })
-  
-      return {
-        ...prev,
-        postazioni: nuovePostazioni
-      }
+
+      // ── Clienti unici estratti da occupazioni ──
+      const clientiMap = {}
+      data.forEach(occ => {
+        if (!occ.cliente) return
+        const key = occ.cliente.trim().toUpperCase()
+        if (!clientiMap[key]) {
+          clientiMap[key] = {
+            id: `cl_${key}`,
+            nome: occ.cliente.trim(),
+            cognome: '',
+            telefono: occ.telefono || '',
+            email: occ.email || '',
+            note: '',
+            postazioni_occ: [],
+          }
+        }
+        clientiMap[key].postazioni_occ.push({
+          tipo: occ.tipo,
+          numero: Number(occ.numero),
+          lettini: Number(occ.lettini) || 0,
+          sdraio: Number(occ.sdraio) || 0,
+          regista: Number(occ.regista) || 0,
+        })
+      })
+      const clienti = Object.values(clientiMap)
+
+      // ── Prenotazioni virtuali per dashboard ──
+      const prenotazioni = data.map(occ => ({
+        id: `pren_${occ.tipo}_${occ.numero}`,
+        postazione_id: `${occ.tipo}_${occ.numero}`,
+        cliente_id: `cl_${(occ.cliente || '').trim().toUpperCase()}`,
+        tipo: 'stagionale',
+        stato_pagamento: 'da_pagare',
+        prezzo_totale: 0,
+        acconto_versato: 0,
+        saldo_residuo: 0,
+        data_inizio: '',
+        data_fine: '',
+      }))
+
+      return { ...prev, postazioni, clienti, prenotazioni, loading: false }
     })
   }
 
-  // ── CLIENTI ──
+  const reload = useCallback(() => loadAll(), [])
+
   const salvaCliente = useCallback((obj) => {
-    updateDB(prev => {
-      const clienti = obj.id
+    setDB(prev => ({
+      ...prev,
+      clienti: obj.id
         ? prev.clienti.map(c => c.id === obj.id ? obj : c)
-        : [...prev.clienti, { ...obj, id: uid(), created_at: new Date().toISOString() }]
-      return { clienti }
-    })
-  }, [updateDB])
+        : [...prev.clienti, { ...obj, id: uid(), postazioni_occ: [] }]
+    }))
+  }, [])
 
-  // ── PRENOTAZIONI ──
-  const salvaPrenotazione = useCallback((obj) => {
-    updateDB(prev => {
-      const isNew = !obj.id
-      const pren = { ...obj, id: obj.id || uid(), created_at: obj.created_at || new Date().toISOString() }
-      const prenotazioni = isNew
-        ? [...prev.prenotazioni, pren]
-        : prev.prenotazioni.map(r => r.id === pren.id ? pren : r)
-
-      // aggiorna stato postazione
-      const postazioni = prev.postazioni.map(p => {
-        if (p.id !== pren.postazione_id) return p
-        const stato = pren.stato_pagamento === 'saldo' ? 'occupato'
-          : pren.stato_pagamento === 'acconto_versato' ? 'acconto'
-          : 'occupato'
-        return { ...p, stato, prenotazione_id: pren.id }
-      })
-
-      return { prenotazioni, postazioni }
-    })
-  }, [updateDB])
-
-  const eliminaPrenotazione = useCallback((id) => {
-    updateDB(prev => {
-      const pren = prev.prenotazioni.find(r => r.id === id)
-      const prenotazioni = prev.prenotazioni.filter(r => r.id !== id)
-      const pagamenti = prev.pagamenti.filter(p => p.prenotazione_id !== id)
-      const postazioni = prev.postazioni.map(p =>
-        p.prenotazione_id === id ? { ...p, stato: 'libero', prenotazione_id: null } : p
-      )
-      return { prenotazioni, pagamenti, postazioni }
-    })
-  }, [updateDB])
-
-  // ── PAGAMENTI ──
   const registraPagamento = useCallback((prenId, importo, data, metodo, note) => {
-    updateDB(prev => {
-      const pag = { id: uid(), prenotazione_id: prenId, importo, data, metodo, note, created_at: new Date().toISOString() }
-      const pagamenti = [...prev.pagamenti, pag]
+    setDB(prev => ({
+      ...prev,
+      pagamenti: [...prev.pagamenti, { id: uid(), prenotazione_id: prenId, importo, data, metodo, note }]
+    }))
+  }, [])
 
-      const prenotazioni = prev.prenotazioni.map(r => {
-        if (r.id !== prenId) return r
-        const nuovoAcconto = (r.acconto_versato || 0) + importo
-        const saldo_residuo = r.prezzo_totale - nuovoAcconto
-        const stato_pagamento = calcolaStato(r.prezzo_totale, nuovoAcconto)
-        return { ...r, acconto_versato: nuovoAcconto, saldo_residuo, stato_pagamento }
-      })
-
-      const pren = prenotazioni.find(r => r.id === prenId)
-      const postazioni = prev.postazioni.map(p => {
-        if (p.prenotazione_id !== prenId) return p
-        const stato = pren.stato_pagamento === 'saldo' ? 'occupato' : 'acconto'
-        return { ...p, stato }
-      })
-
-      return { pagamenti, prenotazioni, postazioni }
-    })
-  }, [updateDB])
-
-  return { db, salvaCliente, salvaPrenotazione, eliminaPrenotazione, registraPagamento }
+  return { db, salvaCliente, registraPagamento, reload }
 }
