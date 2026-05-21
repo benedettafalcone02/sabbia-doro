@@ -165,37 +165,39 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
             </div>
 
             {/* Info prenotazione se occupato */}
-            {selPren && selCl && (
-              <div style={{
-                background: '#f0f4ff',
-                borderRadius: 10,
-                padding: '14px 16px',
-                marginBottom: 16,
-                border: '1px solid #dde8ff'
-              }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--navy)', marginBottom: 4 }}>
-                  {selCl.nome} {selCl.cognome}
-                </div>
-                {selCl.telefono && (
-                  <a href={`tel:${selCl.telefono}`} style={{ fontSize: 13, color: 'var(--sky)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                    📞 {selCl.telefono}
-                  </a>
-                )}
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-                  {selPren.data_inizio} → {selPren.data_fine}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span className={`badge ${getStatoBadgeClass(selPren.stato_pagamento)}`}>
-                    {getStatoLabel(selPren.stato_pagamento)}
-                  </span>
-                  {(selPren.saldo_residuo || 0) > 0 && (
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
-                      Saldo: {fmtEur(selPren.saldo_residuo)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Info occupazione */}
+{selPost.stato === 'occupato' && (
+  <div
+    style={{
+      background: '#f0f4ff',
+      borderRadius: 10,
+      padding: '14px 16px',
+      marginBottom: 16,
+      border: '1px solid #dde8ff'
+    }}
+  >
+    <div
+      style={{
+        fontWeight: 700,
+        fontSize: 15,
+        color: 'var(--navy)',
+        marginBottom: 10
+      }}
+    >
+      👤 {selPost.cliente || 'Cliente non disponibile'}
+    </div>
+
+    <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+      ☀️ Lettini: <strong>{selPost.lettini || 0}</strong>
+      <br />
+
+      🪑 Sdraio: <strong>{selPost.sdraio || 0}</strong>
+      <br />
+
+      🎬 Regista: <strong>{selPost.regista || 0}</strong>
+    </div>
+  </div>
+)}
 
             {/* Azioni */}
             {selPost.stato === 'libero' ? (

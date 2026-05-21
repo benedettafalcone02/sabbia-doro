@@ -1,11 +1,15 @@
 import styles from './Navbar.module.css'
 
 const PAGES = [
-  { id: 'dashboard',     label: 'Home',          icon: '📊' },
-  { id: 'mappa',         label: 'Mappa',          icon: '🗺' },
-  { id: 'prenotazioni',  label: 'Prenotazioni',   icon: '📋' },
-  { id: 'clienti',       label: 'Clienti',        icon: '👤' },
-  { id: 'disponibilita', label: 'Disponibilità',  icon: '🔍' },
+  { id: 'dashboard', label: 'Home', icon: '🏠' },
+
+  { id: 'disponibilita', label: 'Dispon.', icon: '🔍' },
+
+  { id: 'prenotazioni', label: 'Prenota', icon: '➕' },
+
+  { id: 'clienti', label: 'Clienti', icon: '👤' },
+
+  { id: 'admin', label: 'Gestione', icon: '⚙️' },
 ]
 
 export default function Navbar({ activePage, onNavigate, onLogout }) {

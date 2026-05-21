@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { generatePostazioni, calcolaStato, uid } from '../lib/data'
+import { supabase } from '../lib/supabase'
 
 const initialDB = {
   postazioni: generatePostazioni(),
@@ -11,10 +12,63 @@ const initialDB = {
 // Semplice store globale condiviso via prop drilling (upgradable a Context/Zustand)
 export function useStore() {
   const [db, setDB] = useState(initialDB)
+  useEffect(() => {
+    loadOccupazioni()
+  }, [])
 
   const updateDB = useCallback((updater) => {
     setDB(prev => ({ ...prev, ...updater(prev) }))
   }, [])
+
+  async function loadOccupazioni() {
+
+    const { data, error } = await supabase
+      .from('occupazioni')
+      .select('*')
+  
+    if (error) {
+      console.error(error)
+      return
+    }
+  
+    setDB(prev => {
+  
+      const nuovePostazioni = prev.postazioni.map(p => {
+  
+        const occupata = data.find(
+          o =>
+            o.numero === p.numero &&
+            o.tipo === p.tipo
+        )
+  
+        if (!occupata) {
+          return {
+            ...p,
+            stato: 'libero'
+          }
+        }
+  
+        return {
+          ...p,
+        
+          stato: 'occupato',
+        
+          cliente: occupata.cliente || null,
+        
+          lettini: occupata.lettini || 0,
+        
+          sdraio: occupata.sdraio || 0,
+        
+          regista: occupata.regista || 0,
+        }
+      })
+  
+      return {
+        ...prev,
+        postazioni: nuovePostazioni
+      }
+    })
+  }
 
   // ── CLIENTI ──
   const salvaCliente = useCallback((obj) => {

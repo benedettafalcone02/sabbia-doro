@@ -1,3 +1,5 @@
+import { supabase } from './lib/supabase'
+import Admin from './pages/Admin'
 import { useState } from 'react'
 import './styles/global.css'
 
@@ -56,6 +58,7 @@ export default function App() {
       {page === 'prenotazioni'  && <Prenotazioni   db={db} onNuova={() => openNuovaPrenotazione()} onEdit={id => openNuovaPrenotazione(null, id)} onPagamento={openPagamento} />}
       {page === 'clienti'       && <Clienti        db={db} onSalvaCliente={salvaCliente} showToast={showToast} />}
       {page === 'disponibilita' && <Disponibilita  db={db} onPrenota={id => openNuovaPrenotazione(id)} showToast={showToast} />}
+      {page === 'admin' && <Admin />}
 
       <FormPrenotazione
         open={prenModal.open}
