@@ -188,13 +188,13 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
     </div>
 
     <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-      ☀️ Lettini: <strong>{selPost.lettini || 0}</strong>
+      ☀️ Lettini: <strong>{selPost.lettini > 0 ? selPost.lettini : "—"}</strong>
       <br />
 
-      🪑 Sdraio: <strong>{selPost.sdraio || 0}</strong>
+      🪑 Sdraio: <strong>{selPost.sdraio > 0 ? selPost.sdraio : "—"}</strong>
       <br />
 
-      🎬 Regista: <strong>{selPost.regista || 0}</strong>
+      🎬 Regista: <strong>{selPost.regista > 0 ? selPost.regista : "—"}</strong>
     </div>
   </div>
 )}

@@ -1,6 +1,10 @@
 import { useState, useMemo } from 'react'
 import Modal from '../components/Modal'
-import { uid } from '../lib/data'
+
+function fmtAttr(val) {
+  if (val === null || val === undefined || val === 0) return '—'
+  return val
+}
 
 export default function Clienti({ db, onSalvaCliente, showToast }) {
   const { clienti, postazioni } = db
@@ -18,7 +22,6 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
   function openDettaglio(c) { setSelected(c); setModalOpen(true) }
   function closeModal() { setModalOpen(false); setSelected(null) }
 
-  // Postazioni occupate da questo cliente
   const postazioniCliente = useMemo(() => {
     if (!selected) return []
     return postazioni.filter(p =>
@@ -27,11 +30,14 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
   }, [selected, postazioni])
 
   const totAttr = useMemo(() => {
-    return postazioniCliente.reduce((acc, p) => ({
-      lettini: acc.lettini + (p.lettini || 0),
-      sdraio: acc.sdraio + (p.sdraio || 0),
-      regista: acc.regista + (p.regista || 0),
-    }), { lettini: 0, sdraio: 0, regista: 0 })
+    const haLettini = postazioniCliente.some(p => p.lettini > 0)
+    const haSdraio  = postazioniCliente.some(p => p.sdraio > 0)
+    const haRegista = postazioniCliente.some(p => p.regista > 0)
+    return {
+      lettini: haLettini ? postazioniCliente.reduce((a, p) => a + (p.lettini || 0), 0) : null,
+      sdraio:  haSdraio  ? postazioniCliente.reduce((a, p) => a + (p.sdraio  || 0), 0) : null,
+      regista: haRegista ? postazioniCliente.reduce((a, p) => a + (p.regista  || 0), 0) : null,
+    }
   }, [postazioniCliente])
 
   return (
@@ -59,12 +65,13 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
         </div>
       ) : (
         <>
-          {/* MOBILE: cards */}
+          {/* MOBILE */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} className="mobile-only">
             {lista.map(c => {
               const posts = postazioni.filter(p =>
                 p.cliente && p.cliente.trim().toUpperCase() === c.nome.trim().toUpperCase()
               )
+              const haAttr = posts.some(p => p.lettini > 0 || p.sdraio > 0 || p.regista > 0)
               return (
                 <div key={c.id} className="card" style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => openDettaglio(c)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -72,13 +79,22 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
                       <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--navy)' }}>{c.nome}</div>
                       {c.telefono && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{c.telefono}</div>}
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className="badge badge-blue">{posts.length} post.</span>
-                    </div>
+                    <span className="badge badge-blue">{posts.length} post.</span>
                   </div>
                   {posts.length > 0 && (
                     <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
                       {posts.map(p => `${p.tipo === 'palma' ? '🌴' : '☂'} ${p.numero}`).join(' · ')}
+                    </div>
+                  )}
+                  {haAttr && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--navy)', fontWeight: 600 }}>
+                      {posts.map(p => {
+                        const parts = []
+                        if (p.lettini > 0) parts.push(`${p.lettini}L`)
+                        if (p.sdraio  > 0) parts.push(`${p.sdraio}S`)
+                        if (p.regista > 0) parts.push(`${p.regista}R`)
+                        return parts.length ? parts.join(' ') : '—'
+                      }).join(' · ')}
                     </div>
                   )}
                 </div>
@@ -86,7 +102,7 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
             })}
           </div>
 
-          {/* DESKTOP: tabella */}
+          {/* DESKTOP */}
           <div className="tbl-wrap desktop-only">
             <table>
               <thead>
@@ -99,9 +115,10 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
                   )
                   const tot = posts.reduce((a, p) => ({
                     lettini: a.lettini + (p.lettini || 0),
-                    sdraio: a.sdraio + (p.sdraio || 0),
-                    regista: a.regista + (p.regista || 0),
+                    sdraio:  a.sdraio  + (p.sdraio  || 0),
+                    regista: a.regista + (p.regista  || 0),
                   }), { lettini: 0, sdraio: 0, regista: 0 })
+                  const hasAny = posts.some(p => p.lettini > 0 || p.sdraio > 0 || p.regista > 0)
                   return (
                     <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => openDettaglio(c)}>
                       <td style={{ fontWeight: 700, color: 'var(--navy)' }}>{c.nome}</td>
@@ -114,9 +131,9 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
                           ))}
                         </div>
                       </td>
-                      <td style={{ fontWeight: 700 }}>{tot.lettini || '—'}</td>
-                      <td style={{ fontWeight: 700 }}>{tot.sdraio || '—'}</td>
-                      <td style={{ fontWeight: 700 }}>{tot.regista || '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.lettini) : '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.sdraio)  : '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.regista) : '—'}</td>
                       <td style={{ color: 'var(--sky)' }}>{c.telefono || '—'}</td>
                       <td>
                         <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); openDettaglio(c) }}>
@@ -132,11 +149,10 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
         </>
       )}
 
-      {/* MODAL DETTAGLIO CLIENTE */}
+      {/* MODAL DETTAGLIO */}
       <Modal open={modalOpen} onClose={closeModal} title={selected ? selected.nome : ''} size="modal-sm">
         {selected && (
           <div>
-            {/* Info contatto */}
             <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
@@ -153,16 +169,18 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
               </div>
             </div>
 
-            {/* Riepilogo attrezzatura */}
+            {/* Riepilogo */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
               {[
                 { label: 'Lettini', val: totAttr.lettini, icon: '🛏' },
-                { label: 'Sdraio', val: totAttr.sdraio, icon: '🪑' },
+                { label: 'Sdraio',  val: totAttr.sdraio,  icon: '🪑' },
                 { label: 'Regista', val: totAttr.regista, icon: '🎬' },
               ].map(a => (
                 <div key={a.label} style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                   <div style={{ fontSize: 20, marginBottom: 4 }}>{a.icon}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--navy)' }}>{a.val}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: a.val ? 'var(--navy)' : 'var(--muted)' }}>
+                    {a.val !== null ? a.val : '—'}
+                  </div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{a.label}</div>
                 </div>
               ))}
@@ -173,23 +191,23 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
               Postazioni ({postazioniCliente.length})
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {postazioniCliente.map(p => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f7f9ff', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--navy)' }}>
-                    {p.tipo === 'palma' ? '🌴 Palma' : '☂ Ombrellone'} {p.numero}
+              {postazioniCliente.map(p => {
+                const parts = []
+                if (p.lettini > 0) parts.push(`${p.lettini} Lettini`)
+                if (p.sdraio  > 0) parts.push(`${p.sdraio} Sdraio`)
+                if (p.regista > 0) parts.push(`${p.regista} Regista`)
+                return (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f7f9ff', borderRadius: 8 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--navy)' }}>
+                      {p.tipo === 'palma' ? '🌴 Palma' : '☂ Ombrellone'} {p.numero}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                      {parts.length > 0 ? parts.join(' · ') : '—'}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {p.lettini}L · {p.sdraio}S · {p.regista}R
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-
-            {selected.note && (
-              <div style={{ marginTop: 14, padding: '10px 14px', background: '#fffbec', borderRadius: 8, fontSize: 13, color: '#7a5500', borderLeft: '3px solid var(--yellow)' }}>
-                📝 {selected.note}
-              </div>
-            )}
           </div>
         )}
       </Modal>
