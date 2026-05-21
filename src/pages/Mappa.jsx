@@ -4,15 +4,15 @@ import { getStatoBadgeClass, getStatoLabel, fmtEur } from '../lib/data'
 import styles from './Mappa.module.css'
 
 const FILTRI = [
-  { id: 'tutti',       label: 'Tutti' },
-  { id: 'palme',       label: '🌴 Palme' },
-  { id: 'ombrelloni',  label: '☂ Ombrelloni' },
-  { id: 'liberi',      label: '🟢 Liberi' },
-  { id: 'occupati',    label: '🔴 Occupati' },
+  { id: 'tutti',      label: 'Tutti' },
+  { id: 'palme',      label: '🌴 Palme' },
+  { id: 'ombrelloni', label: '☂ Ombrelloni' },
+  { id: 'liberi',     label: '🟢 Liberi' },
+  { id: 'occupati',   label: '🔴 Occupati' },
 ]
 
-export default function Mappa({ db, onNuovaPrenotazione }) {
-  const { postazioni, prenotazioni, clienti } = db
+export default function Mappa({ db, onNavigate, showToast }) {
+  const { postazioni } = db
   const [filtro, setFiltro] = useState('tutti')
   const [selected, setSelected] = useState(null)
 
@@ -28,7 +28,6 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
     const items = postazioni
       .filter(p => p.tipo === 'ombrellone' && p.settore === settore && p.fila === fila)
       .sort((a, b) => a.col - b.col)
-
     return (
       <div key={`${settore}-${fila}`} className={styles.row}>
         <div className={styles.rowLabel}>F{fila}</div>
@@ -39,7 +38,6 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
               <div
                 key={p.id}
                 className={`${styles.postazione} ${styles[cls]} ${styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
-                title={`Ombr. ${p.numero} S.${p.settore} F${p.fila}`}
                 onClick={() => isVisible(p) && setSelected(p.id)}
               >
                 {p.numero}
@@ -52,21 +50,17 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
   }
 
   const selPost = selected ? postazioni.find(p => p.id === selected) : null
-  const selPren = selPost?.prenotazione_id ? prenotazioni.find(r => r.id === selPost.prenotazione_id) : null
-  const selCl   = selPren ? clienti.find(c => c.id === selPren.cliente_id) : null
 
   return (
     <div className="page-content">
-      <h1 className="page-title">Mappa Interattiva</h1>
+      <h1 className="page-title">Mappa</h1>
 
+      {/* Legenda + filtri su una riga */}
       <div className={styles.controls}>
-        {/* Legenda */}
         <div className={styles.legenda}>
           <div className={styles.legItem}><div className={styles.dot} style={{ background: '#27ae60' }} />Libero</div>
           <div className={styles.legItem}><div className={styles.dot} style={{ background: 'var(--red)' }} />Occupato</div>
-          <div className={styles.legItem}><div className={styles.dot} style={{ background: 'var(--orange)' }} />Acconto versato</div>
         </div>
-        {/* Filtri */}
         <div className={styles.filtri}>
           {FILTRI.map(f => (
             <button
@@ -81,15 +75,12 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
       </div>
 
       <div className={styles.mappaWrap}>
-        <div className={styles.scrollHint}>← scorri per vedere tutta la mappa →</div>
+        <div className={styles.scrollHint}>← scorri orizzontalmente →</div>
 
-        {/* PALME */}
         <div className={styles.sezione}>
-          <div className={styles.sezLabel}>🌴 Palme — Settore Premium (84)</div>
+          <div className={styles.sezLabel}>🌴 Palme (84)</div>
           {[1,2,3,4,5,6].map(fila => {
-            const items = postazioni
-              .filter(p => p.tipo === 'palma' && p.fila === fila)
-              .sort((a, b) => a.col - b.col)
+            const items = postazioni.filter(p => p.tipo === 'palma' && p.fila === fila).sort((a,b) => a.col - b.col)
             return (
               <div key={fila} className={styles.row}>
                 <div className={styles.rowLabel}>F{fila}</div>
@@ -98,7 +89,6 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
                     <div
                       key={p.id}
                       className={`${styles.postazione} ${styles.palma} ${styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
-                      title={`Palma ${p.numero} F${p.fila} — ${fmtEur(p.prezzo_stagionale)}`}
                       onClick={() => isVisible(p) && setSelected(p.id)}
                     >
                       {p.numero}
@@ -110,121 +100,81 @@ export default function Mappa({ db, onNuovaPrenotazione }) {
           })}
         </div>
 
-        {/* OMBRELLONI A */}
         <div className={styles.sezione}>
-          <div className={styles.sezLabel}>☂ Settore A — File 1–6</div>
+          <div className={styles.sezLabel}>☂ Settore A</div>
           {[1,2,3,4,5,6].map(f => renderRigaOmbrelloni(f, 'A', 'ombrA'))}
         </div>
 
-        {/* OMBRELLONI B */}
         <div className={styles.sezione}>
-          <div className={styles.sezLabel}>☂ Settore B — File 7–13</div>
+          <div className={styles.sezLabel}>☂ Settore B</div>
           {[7,8,9,10,11,12,13].map(f => renderRigaOmbrelloni(f, 'B', 'ombrB'))}
         </div>
       </div>
 
-      {/* POPUP POSTAZIONE */}
+      {/* POPUP */}
       <Modal
         open={!!selected}
         onClose={() => setSelected(null)}
-        title={selPost
-          ? selPost.tipo === 'palma'
-            ? `🌴 Palma ${selPost.numero} — Fila ${selPost.fila}`
-            : `☂ Ombrellone ${selPost.numero} Sett.${selPost.settore} — Fila ${selPost.fila}`
-          : ''}
+        title={selPost ? (selPost.tipo === 'palma' ? `🌴 Palma ${selPost.numero} · F${selPost.fila}` : `☂ Ombr. ${selPost.numero} S.${selPost.settore} · F${selPost.fila}`) : ''}
         size="modal-sm"
       >
         {selPost && (
           <div>
-            {/* Info prezzi */}
-            <div style={{
-              background: '#f7f9ff',
-              borderRadius: 10,
-              padding: '12px 16px',
-              marginBottom: 16,
-              fontSize: 13,
-              fontWeight: 500
-            }}>
-              {selPost.tipo === 'palma' ? (
-                <div>Stagionale: <strong style={{ color: 'var(--navy)', fontSize: 15 }}>{fmtEur(selPost.prezzo_stagionale)}</strong>
-                  <span style={{ color: 'var(--muted)', marginLeft: 8 }}>· 3 lettini + regista</span>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <div>2 Lettini: <strong style={{ color: 'var(--navy)' }}>{fmtEur(selPost.prezzo_2lettini)}</strong></div>
-                  <div>Lett.+Regista: <strong style={{ color: 'var(--navy)' }}>{fmtEur(selPost.prezzo_lettino_regista)}</strong></div>
-                </div>
-              )}
+            <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13 }}>
+              {selPost.tipo === 'palma'
+                ? <div>Stagionale: <strong style={{ color: 'var(--navy)', fontSize: 15 }}>{fmtEur(selPost.prezzo_stagionale)}</strong></div>
+                : <div style={{ display: 'flex', gap: 14 }}>
+                    <div>2L: <strong>{fmtEur(selPost.prezzo_2lettini)}</strong></div>
+                    <div>L+R: <strong>{fmtEur(selPost.prezzo_lettino_regista)}</strong></div>
+                  </div>
+              }
             </div>
 
-            {/* Stato */}
             <div style={{ marginBottom: 14 }}>
-              <span className={`badge ${selPost.stato === 'libero' ? 'badge-green' : selPost.stato === 'acconto' ? 'badge-orange' : 'badge-red'}`}>
-                {selPost.stato === 'libero' ? '🟢 Libero' : selPost.stato === 'acconto' ? '🟠 Acconto versato' : '🔴 Occupato'}
+              <span className={`badge ${selPost.stato === 'libero' ? 'badge-green' : 'badge-red'}`}>
+                {selPost.stato === 'libero' ? '🟢 Libero' : '🔴 Occupato'}
               </span>
             </div>
 
-            {/* Info prenotazione se occupato */}
-            {/* Info occupazione */}
-{selPost.stato === 'occupato' && (
-  <div
-    style={{
-      background: '#f0f4ff',
-      borderRadius: 10,
-      padding: '14px 16px',
-      marginBottom: 16,
-      border: '1px solid #dde8ff'
-    }}
-  >
-    <div
-      style={{
-        fontWeight: 700,
-        fontSize: 15,
-        color: 'var(--navy)',
-        marginBottom: 10
-      }}
-    >
-      👤 {selPost.cliente || 'Cliente non disponibile'}
-    </div>
+            {selPost.stato === 'occupato' && (
+              <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '14px', marginBottom: 14, border: '1px solid #dde8ff' }}>
+                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--navy)', marginBottom: 10 }}>
+                  👤 {selPost.cliente || '—'}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                  {[
+                    { icon: '🛏', label: 'Lettini', val: selPost.lettini },
+                    { icon: '🪑', label: 'Sdraio',  val: selPost.sdraio },
+                    { icon: '🎬', label: 'Regista', val: selPost.regista },
+                  ].map(a => (
+                    <div key={a.label} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '8px 4px' }}>
+                      <div style={{ fontSize: 18 }}>{a.icon}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--navy)' }}>
+                        {a.val > 0 ? a.val : '—'}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>{a.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-    <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-      ☀️ Lettini: <strong>{selPost.lettini > 0 ? selPost.lettini : "—"}</strong>
-      <br />
-
-      🪑 Sdraio: <strong>{selPost.sdraio > 0 ? selPost.sdraio : "—"}</strong>
-      <br />
-
-      🎬 Regista: <strong>{selPost.regista > 0 ? selPost.regista : "—"}</strong>
-    </div>
-  </div>
-)}
-
-            {/* Azioni */}
             {selPost.stato === 'libero' ? (
               <button
                 className="btn btn-yellow btn-lg"
                 style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => { onNuovaPrenotazione(selPost.id); setSelected(null) }}
+                onClick={() => { setSelected(null); onNavigate && onNavigate('prenota') }}
               >
-                + Prenota questa postazione
+                ➕ Prenota questa postazione
               </button>
             ) : (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  className="btn btn-primary"
-                  style={{ flex: 1, justifyContent: 'center' }}
-                  onClick={() => { onNuovaPrenotazione(selPost.id, selPren?.id); setSelected(null) }}
-                >
-                  ✏ Modifica
-                </button>
-                <button
-                  className="btn btn-yellow"
-                  style={{ flex: 1, justifyContent: 'center' }}
-                  onClick={() => { /* TODO: pagamento */ setSelected(null) }}
-                >
-                  💳 Pagamento
-                </button>
-              </div>
+              <button
+                className="btn btn-outline"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => setSelected(null)}
+              >
+                Chiudi
+              </button>
             )}
           </div>
         )}

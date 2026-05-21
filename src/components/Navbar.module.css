@@ -1,0 +1,133 @@
+.nav {
+  background: #fff;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 0 #eee, 0 2px 12px rgba(31,78,121,.05);
+  min-height: 64px;
+  padding: 0 20px;
+  gap: 8px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  padding-right: 16px;
+  border-right: 1px solid #eee;
+  margin-right: 4px;
+  flex-shrink: 0;
+  height: 64px;
+}
+.logoImg { height: 48px; width: auto; object-fit: contain; }
+
+/* Bottone mappa mobile — nascosto su desktop */
+.mappaBtn {
+  display: none;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 64px;
+}
+.navBtn {
+  background: none; border: none; color: var(--muted);
+  padding: 0 14px; height: 64px; cursor: pointer;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  border-bottom: 2px solid transparent; transition: all .15s;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.navBtn:hover { color: var(--navy); background: #f7f9ff; }
+.navBtn.active { color: var(--navy); border-bottom-color: var(--yellow); font-weight: 700; }
+.icon { font-size: 15px; }
+.label { font-size: 13px; }
+.logoText { display: none; }
+.concNum { display: none; }
+
+.logoutBtn {
+  background: none; border: 1.5px solid #eee; color: var(--muted);
+  cursor: pointer; font-family: var(--font-body); font-size: 12px;
+  font-weight: 600; padding: 7px 16px; border-radius: 8px;
+  transition: .15s; margin-left: auto; flex-shrink: 0;
+}
+.logoutBtn:hover { color: var(--red); border-color: var(--red); background: #fff5f5; }
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  .nav {
+    padding: 0 14px;
+    min-height: 64px;
+    gap: 10px;
+  }
+  .logo {
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+    height: 64px;
+  }
+  .logoImg { height: 44px; }
+  .links { display: none; }
+
+  /* Bottone Mappa accanto al logo */
+  .mappaBtn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .15s;
+    flex-shrink: 0;
+  }
+  .mappaBtn:active { opacity: .85; }
+  .mappaBtnActive { background: var(--yellow); color: var(--navy); }
+  .mappaBtnLabel { font-size: 13px; }
+
+  /* Bottom tab bar */
+  .mobileNav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid #f0f0f0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    z-index: 200;
+    box-shadow: 0 -2px 16px rgba(0,0,0,.08);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mobileTab {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 10px 4px 8px;
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-body); gap: 4px;
+    min-height: 68px; position: relative; transition: background .12s;
+  }
+  .mobileTab:active { background: #f5f8ff; }
+  .mobileTab.active::before {
+    content: '';
+    position: absolute; top: 0; left: 20%; right: 20%;
+    height: 3px; background: var(--yellow);
+    border-radius: 0 0 3px 3px;
+  }
+  .mobileIcon { font-size: 22px; color: #c0c8d4; transition: .15s; line-height: 1; }
+  .mobileTab.active .mobileIcon { color: var(--navy); }
+  .mobileLabel { font-size: 10px; font-weight: 500; color: #c0c8d4; transition: .15s; }
+  .mobileTab.active .mobileLabel { color: var(--navy); font-weight: 700; }
+  .bodyPad { height: 68px; }
+  .logoutBtn { font-size: 11px; padding: 6px 12px; margin-left: auto; }
+}
+
+@media (min-width: 769px) {
+  .mobileNav { display: none; }
+  .mappaBtn { display: none; }
+  .bodyPad { display: none; }
+}
