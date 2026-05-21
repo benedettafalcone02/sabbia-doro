@@ -5,10 +5,10 @@ export default function Dashboard({ db, onNavigate, onSqlModal }) {
   const { postazioni, prenotazioni, clienti, pagamenti } = db
 
   const stats = useMemo(() => {
-    const occ    = prenotazioni.length
-    const lib    = 292 - occ
-    const inc    = pagamenti.reduce((s, p) => s + p.importo, 0)
-    const saldi  = prenotazioni.reduce((s, r) => s + (r.saldo_residuo || 0), 0)
+    const occ = prenotazioni.length
+    const lib = 292 - occ
+    const inc = pagamenti.reduce((s, p) => s + p.importo, 0)
+    const saldi = prenotazioni.reduce((s, r) => s + (r.saldo_residuo || 0), 0)
     const palmePren = prenotazioni.filter(r => postazioni.find(p => p.id === r.postazione_id && p.tipo === 'palma')).length
     const ombrAPren = prenotazioni.filter(r => postazioni.find(p => p.id === r.postazione_id && p.settore === 'A')).length
     const ombrBPren = prenotazioni.filter(r => postazioni.find(p => p.id === r.postazione_id && p.settore === 'B')).length
@@ -23,10 +23,6 @@ export default function Dashboard({ db, onNavigate, onSqlModal }) {
 
   return (
     <div className="page-content">
-      <div className="supabase-banner">
-        ⚡ <strong>Supabase non connesso</strong> — i dati non vengono salvati.
-        <a onClick={onSqlModal}>Configura →</a>
-      </div>
 
       <h1 className="page-title">Dashboard</h1>
 
@@ -134,7 +130,7 @@ export default function Dashboard({ db, onNavigate, onSqlModal }) {
               ✅ Nessuna scadenza imminente
             </div>
           ) : stats.scadenze.map(r => {
-            const cl  = clienti.find(c => c.id === r.cliente_id)
+            const cl = clienti.find(c => c.id === r.cliente_id)
             const pos = postazioni.find(p => p.id === r.postazione_id)
             const urgente = r.data_fine === today()
             return (
