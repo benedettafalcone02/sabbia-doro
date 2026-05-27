@@ -28,10 +28,17 @@ export function useStore() {
         return {
           ...p,
           stato: 'occupato',
-          cliente: occ.cliente || null,
-          lettini: Number(occ.lettini) || 0,
-          sdraio:  Number(occ.sdraio)  || 0,
-          regista: Number(occ.regista) || 0,
+          cliente:    occ.cliente    || null,
+          lettini:    Number(occ.lettini)  || 0,
+          sdraio:     Number(occ.sdraio)   || 0,
+          regista:    Number(occ.regista)  || 0,
+          telefono:   occ.telefono   || null,
+          email:      occ.email      || null,
+          n_persone:  occ.n_persone  ? Number(occ.n_persone) : null,
+          data_inizio: occ.data_inizio || null,
+          data_fine:   occ.data_fine   || null,
+          note:       occ.note       || null,
+          acconto:    occ.acconto    ? Number(occ.acconto) : null,
         }
       })
 
@@ -41,19 +48,24 @@ export function useStore() {
         const key = normalizeCliente(occ.cliente)
         if (!clientiMap[key]) {
           clientiMap[key] = {
-            id: `cl_${key}`,
-            nome: occ.cliente.trim(),
-            cognome: '',
-            telefono: occ.telefono || '',
-            email: occ.email || '',
+            id:          `cl_${key}`,
+            nome:        occ.cliente.trim(),
+            cognome:     '',
+            telefono:    occ.telefono   || '',
+            email:       occ.email      || '',
+            n_persone:   occ.n_persone  ? Number(occ.n_persone) : null,
+            data_inizio: occ.data_inizio || '',
+            data_fine:   occ.data_fine   || '',
+            note:        occ.note        || '',
+            acconto:     occ.acconto     ? Number(occ.acconto) : null,
             postazioni_occ: [],
           }
         }
         clientiMap[key].postazioni_occ.push({
-          tipo: occ.tipo,
-          numero: Number(occ.numero),
+          tipo:    occ.tipo,
+          numero:  Number(occ.numero),
           lettini: Number(occ.lettini) || 0,
-          sdraio: Number(occ.sdraio) || 0,
+          sdraio:  Number(occ.sdraio)  || 0,
           regista: Number(occ.regista) || 0,
         })
       })

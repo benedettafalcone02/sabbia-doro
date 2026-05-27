@@ -11,6 +11,7 @@ import Dashboard     from './pages/Dashboard'
 import Mappa         from './pages/Mappa'
 import Prenota       from './pages/Prenota'
 import Clienti       from './pages/Clienti'
+import NuovoCliente  from './pages/NuovoCliente'
 import Disponibilita from './pages/Disponibilita'
 import Admin         from './pages/Admin'
 import Toast         from './components/Toast'
@@ -44,7 +45,8 @@ export default function App() {
       {page === 'dashboard'     && <Dashboard     db={db} onNavigate={setPage} />}
       {page === 'mappa'         && <Mappa          db={db} onNavigate={setPage} showToast={showToast} />}
       {page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} />}
-      {page === 'clienti'       && <Clienti        db={db} />}
+      {page === 'clienti'       && <Clienti        db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
+      {page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={setPage} />}
       {page === 'disponibilita' && <Disponibilita  db={db} />}
       {page === 'admin'         && <Admin          onReload={reload} />}
 
