@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { today } from '../lib/data'
 
 export default function Prenota({ db, showToast, onReload }) {
-  const { postazioni, clienti } = db
+  const { postazioni, clienti, loading } = db
 
   const [form, setForm] = useState({
     postazione_id: '',
@@ -29,17 +29,15 @@ export default function Prenota({ db, showToast, onReload }) {
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
-  // Quando cambia postazione aggiorna dotazione di default
-  useEffect(() => {
-    if (!postazioneSelezionata) return
-    if (postazioneSelezionata.tipo === 'palma') {
-      setForm(f => ({ ...f, dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }))
-    } else {
-      setForm(f => ({ ...f, dotazione: '2lettini', lettini: 2, sdraio: 0, regista: 0 }))
-    }
-  }, [form.postazione_id])
+  function handlePostazioneChange(id) {
+    const pos = postazioni.find(p => p.id === id)
+    const defaults = !pos ? {}
+      : pos.tipo === 'palma'
+        ? { dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }
+        : { dotazione: '2lettini', lettini: 2, sdraio: 0, regista: 0 }
+    setForm(f => ({ ...f, postazione_id: id, ...defaults }))
+  }
 
-  // Quando cambia dotazione aggiorna numeri
   function handleDotazione(dot) {
     const map = {
       '2lettini':          { lettini: 2, sdraio: 0, regista: 0 },
@@ -90,8 +88,15 @@ export default function Prenota({ db, showToast, onReload }) {
     setSaving(false)
   }
 
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
+      <div style={{ fontSize: 40 }}>🌊</div>
+      <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
+    </div>
+  )
+
   const libere = postazioni.filter(p => p.stato === 'libero')
-  const occupate = postazioni.filter(p => p.stato === 'occupato')
 
   return (
     <div className="page-content">
@@ -104,7 +109,7 @@ export default function Prenota({ db, showToast, onReload }) {
           <label>Postazione</label>
           <select
             value={form.postazione_id}
-            onChange={e => set('postazione_id', e.target.value)}
+            onChange={e => handlePostazioneChange(e.target.value)}
             style={{ fontSize: 15, padding: '12px 14px' }}
           >
             <option value="">Seleziona postazione libera...</option>

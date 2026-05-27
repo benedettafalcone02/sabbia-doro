@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 
-// Parser robusto: gestisce 2L, LR, LS, 2LR, R2L, LRS, SR ecc.
+// Parses attrezzatura codes: 2L, LR, LS, 2LR, R2L, LRS, SR, etc.
 function parseAttrezzatura(text = '') {
   if (!text || text === '—' || text === '-') return { lettini: 0, sdraio: 0, regista: 0 }
   const value = String(text).toUpperCase().replace(/\s/g, '').replace(/—/g, '').replace(/-/g, '')
@@ -11,18 +11,19 @@ function parseAttrezzatura(text = '') {
   let match
   while ((match = regex.exec(value)) !== null) {
     const qty = match[1] ? Number(match[1]) : 1
-    const type = match[2]
-    if (type === 'L') lettini += qty
-    if (type === 'S') sdraio += qty
-    if (type === 'R') regista += qty
+    if (match[2] === 'L') lettini += qty
+    if (match[2] === 'S') sdraio += qty
+    if (match[2] === 'R') regista += qty
   }
   return { lettini, sdraio, regista }
 }
 
 export default function ImportExcel({ onReload }) {
-  const [status, setStatus] = useState(null)
-  const [message, setMessage] = useState('')
-  const [preview, setPreview] = useState([])
+  const [status, setStatus]       = useState(null)   // null | 'loading' | 'confirm' | 'saving' | 'ok' | 'error'
+  const [message, setMessage]     = useState('')
+  const [preview, setPreview]     = useState([])
+  const pendingData               = useRef(null)      // parsed rows waiting for confirmation
+  const fileInputRef              = useRef(null)
 
   const handleFile = async (e) => {
     const file = e.target.files[0]
@@ -31,6 +32,7 @@ export default function ImportExcel({ onReload }) {
     setStatus('loading')
     setMessage('Lettura file...')
     setPreview([])
+    pendingData.current = null
 
     try {
       const data = await file.arrayBuffer()
@@ -70,9 +72,30 @@ export default function ImportExcel({ onReload }) {
 
       if (formatted.length === 0) { setStatus('error'); setMessage('Nessuna riga valida trovata.'); return }
 
+      // Stop here — show preview and ask for confirmation before touching the DB
+      pendingData.current = formatted
       setPreview(formatted.slice(0, 5))
-      setMessage(`${formatted.length} righe trovate. Caricamento...`)
+      setStatus('confirm')
+      setMessage(`${formatted.length} righe pronte (${formatted[0].tipo}). Questa operazione sovrascriverà tutte le occupazioni esistenti per questo tipo.`)
 
+    } catch (err) {
+      console.error(err)
+      setStatus('error')
+      setMessage(`Errore lettura file: ${err.message || JSON.stringify(err)}`)
+    }
+
+    // Reset input so the same file can be re-selected if needed
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleConfirm = async () => {
+    const formatted = pendingData.current
+    if (!formatted) return
+
+    setStatus('saving')
+    setMessage('Salvataggio in corso...')
+
+    try {
       const tipo = formatted[0].tipo
       const { error: delError } = await supabase.from('occupazioni').delete().eq('tipo', tipo)
       if (delError) throw delError
@@ -85,14 +108,22 @@ export default function ImportExcel({ onReload }) {
 
       setStatus('ok')
       setMessage(`✅ Importate ${formatted.length} occupazioni (${tipo})!`)
+      setPreview([])
+      pendingData.current = null
       if (onReload) onReload()
 
     } catch (err) {
       console.error(err)
       setStatus('error')
-      setMessage(`Errore: ${err.message || JSON.stringify(err)}`)
+      setMessage(`Errore salvataggio: ${err.message || JSON.stringify(err)}`)
     }
-    e.target.value = ''
+  }
+
+  const handleCancel = () => {
+    setStatus(null)
+    setMessage('')
+    setPreview([])
+    pendingData.current = null
   }
 
   return (
@@ -101,21 +132,31 @@ export default function ImportExcel({ onReload }) {
         📥 Importa Excel Occupazioni
       </h3>
       <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
-        Colonne richieste: <strong>Numero Palma</strong> o <strong>Numero Ombrellone</strong> · <strong>Cliente</strong> · <strong>Attrezzatura</strong><br/>
-        Formati attrezzatura supportati: <code style={{background:'#f0f2f5',padding:'1px 5px',borderRadius:4}}>2L</code> <code style={{background:'#f0f2f5',padding:'1px 5px',borderRadius:4}}>LR</code> <code style={{background:'#f0f2f5',padding:'1px 5px',borderRadius:4}}>LS</code> <code style={{background:'#f0f2f5',padding:'1px 5px',borderRadius:4}}>2LR</code> <code style={{background:'#f0f2f5',padding:'1px 5px',borderRadius:4}}>LRS</code> ecc.
+        Colonne richieste: <strong>Numero Palma</strong> o <strong>Numero Ombrellone</strong> · <strong>Cliente</strong> · <strong>Attrezzatura</strong><br />
+        Formati attrezzatura supportati:{' '}
+        {['2L', 'LR', 'LS', '2LR', 'LRS'].map(c => (
+          <code key={c} style={{ background: '#f0f2f5', padding: '1px 5px', borderRadius: 4, marginRight: 4 }}>{c}</code>
+        ))} ecc.
       </p>
 
       <label style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8,
+        display: status === 'confirm' || status === 'saving' ? 'none' : 'inline-flex',
+        alignItems: 'center', gap: 8,
         background: 'var(--navy)', color: '#fff',
         padding: '11px 20px', borderRadius: 8, cursor: 'pointer',
         fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
       }}>
         📂 Scegli file Excel
-        <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: 'none' }} />
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: 'none' }} />
       </label>
 
+      {/* Status messages */}
       {status === 'loading' && (
+        <div style={{ marginTop: 14, padding: '12px 16px', background: '#f0f4ff', borderRadius: 8, fontSize: 13, color: 'var(--navy)', fontWeight: 500 }}>
+          ⏳ {message}
+        </div>
+      )}
+      {status === 'saving' && (
         <div style={{ marginTop: 14, padding: '12px 16px', background: '#f0f4ff', borderRadius: 8, fontSize: 13, color: 'var(--navy)', fontWeight: 500 }}>
           ⏳ {message}
         </div>
@@ -131,14 +172,34 @@ export default function ImportExcel({ onReload }) {
         </div>
       )}
 
+      {/* Confirm stage */}
+      {status === 'confirm' && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ padding: '12px 16px', background: '#fff8e1', borderRadius: 8, fontSize: 13, color: '#7c5a00', fontWeight: 600, borderLeft: '3px solid var(--yellow)', marginBottom: 12 }}>
+            ⚠️ {message}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-primary" onClick={handleConfirm}>
+              ✅ Conferma importazione
+            </button>
+            <button className="btn btn-outline" onClick={handleCancel}>
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Preview table */}
       {preview.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Anteprima prime 5 righe</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
+            Anteprima prime {preview.length} righe
+          </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f0f2f5' }}>
-                  {['Tipo','N°','Cliente','L','S','R'].map(h => (
+                  {['Tipo', 'N°', 'Cliente', 'L', 'S', 'R'].map(h => (
                     <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)' }}>{h}</th>
                   ))}
                 </tr>

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, Fragment } from 'react'
 import Modal from '../components/Modal'
-import { getStatoBadgeClass, getStatoLabel, fmtEur } from '../lib/data'
+import { fmtEur } from '../lib/data'
 import styles from './Mappa.module.css'
 
 const FILTRI = [
@@ -11,8 +11,18 @@ const FILTRI = [
   { id: 'occupati',   label: '🔴 Occupati' },
 ]
 
+const loadingPlaceholder = (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+    minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
+    <div style={{ fontSize: 40 }}>🌊</div>
+    <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
+  </div>
+)
+
+// showToast used in upcoming "libera postazione" feature (Phase 1.5)
+// eslint-disable-next-line no-unused-vars
 export default function Mappa({ db, onNavigate, showToast }) {
-  const { postazioni } = db
+  const { postazioni, loading } = db
   const [filtro, setFiltro] = useState('tutti')
   const [selected, setSelected] = useState(null)
 
@@ -24,6 +34,8 @@ export default function Mappa({ db, onNavigate, showToast }) {
     return true
   }, [filtro])
 
+  if (loading) return loadingPlaceholder
+
   function renderRigaOmbrelloni(fila, settore, cls) {
     const items = postazioni
       .filter(p => p.tipo === 'ombrellone' && p.settore === settore && p.fila === fila)
@@ -33,16 +45,15 @@ export default function Mappa({ db, onNavigate, showToast }) {
         <div className={styles.rowLabel}>F{fila}</div>
         <div className={styles.rowItems}>
           {items.map((p, idx) => (
-            <>
-              {idx === 8 && <div key={`pass-${fila}`} className={styles.passerella} />}
+            <Fragment key={p.id}>
+              {idx === 8 && <div className={styles.passerella} />}
               <div
-                key={p.id}
                 className={`${styles.postazione} ${styles[cls]} ${styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
                 onClick={() => isVisible(p) && setSelected(p.id)}
               >
                 {p.numero}
               </div>
-            </>
+            </Fragment>
           ))}
         </div>
       </div>

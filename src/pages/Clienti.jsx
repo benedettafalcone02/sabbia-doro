@@ -1,14 +1,16 @@
 import { useState, useMemo } from 'react'
 import Modal from '../components/Modal'
+import { normalizeCliente } from '../lib/data'
 
 function fmtAttr(val) {
   if (val === null || val === undefined || val === 0) return '—'
   return val
 }
 
-export default function Clienti({ db, onSalvaCliente, showToast }) {
-  const { clienti, postazioni } = db
-  const [search, setSearch]   = useState('')
+export default function Clienti({ db }) {
+  const { clienti, postazioni, loading } = db
+
+  const [search, setSearch]       = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [selected, setSelected]   = useState(null)
 
@@ -19,13 +21,10 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
     )
   }, [clienti, search])
 
-  function openDettaglio(c) { setSelected(c); setModalOpen(true) }
-  function closeModal() { setModalOpen(false); setSelected(null) }
-
   const postazioniCliente = useMemo(() => {
     if (!selected) return []
     return postazioni.filter(p =>
-      p.cliente && p.cliente.trim().toUpperCase() === selected.nome.trim().toUpperCase()
+      p.cliente && normalizeCliente(p.cliente) === normalizeCliente(selected.nome)
     )
   }, [selected, postazioni])
 
@@ -39,6 +38,17 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
       regista: haRegista ? postazioniCliente.reduce((a, p) => a + (p.regista  || 0), 0) : null,
     }
   }, [postazioniCliente])
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
+      <div style={{ fontSize: 40 }}>🌊</div>
+      <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
+    </div>
+  )
+
+  function openDettaglio(c) { setSelected(c); setModalOpen(true) }
+  function closeModal() { setModalOpen(false); setSelected(null) }
 
   return (
     <div className="page-content">
@@ -69,7 +79,7 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} className="mobile-only">
             {lista.map(c => {
               const posts = postazioni.filter(p =>
-                p.cliente && p.cliente.trim().toUpperCase() === c.nome.trim().toUpperCase()
+                p.cliente && normalizeCliente(p.cliente) === normalizeCliente(c.nome)
               )
               const haAttr = posts.some(p => p.lettini > 0 || p.sdraio > 0 || p.regista > 0)
               return (
@@ -111,7 +121,7 @@ export default function Clienti({ db, onSalvaCliente, showToast }) {
               <tbody>
                 {lista.map(c => {
                   const posts = postazioni.filter(p =>
-                    p.cliente && p.cliente.trim().toUpperCase() === c.nome.trim().toUpperCase()
+                    p.cliente && normalizeCliente(p.cliente) === normalizeCliente(c.nome)
                   )
                   const tot = posts.reduce((a, p) => ({
                     lettini: a.lettini + (p.lettini || 0),

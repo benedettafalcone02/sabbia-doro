@@ -22,11 +22,6 @@
 }
 .logoImg { height: 48px; width: auto; object-fit: contain; }
 
-/* Bottone mappa mobile — nascosto su desktop */
-.mappaBtn {
-  display: none;
-}
-
 .links {
   display: flex;
   align-items: center;
@@ -44,8 +39,6 @@
 .navBtn.active { color: var(--navy); border-bottom-color: var(--yellow); font-weight: 700; }
 .icon { font-size: 15px; }
 .label { font-size: 13px; }
-.logoText { display: none; }
-.concNum { display: none; }
 
 .logoutBtn {
   background: none; border: 1.5px solid #eee; color: var(--muted);
@@ -60,7 +53,6 @@
   .nav {
     padding: 0 14px;
     min-height: 64px;
-    gap: 10px;
   }
   .logo {
     border-right: none;
@@ -70,27 +62,6 @@
   }
   .logoImg { height: 44px; }
   .links { display: none; }
-
-  /* Bottone Mappa accanto al logo */
-  .mappaBtn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--navy);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-family: var(--font-body);
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: .15s;
-    flex-shrink: 0;
-  }
-  .mappaBtn:active { opacity: .85; }
-  .mappaBtnActive { background: var(--yellow); color: var(--navy); }
-  .mappaBtnLabel { font-size: 13px; }
 
   /* Bottom tab bar */
   .mobileNav {
@@ -128,6 +99,5 @@
 
 @media (min-width: 769px) {
   .mobileNav { display: none; }
-  .mappaBtn { display: none; }
   .bodyPad { display: none; }
 }

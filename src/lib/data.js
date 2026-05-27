@@ -59,29 +59,14 @@ export function generatePostazioni() {
 }
 
 // Helpers
-export function getStatoBadgeClass(stato) {
-  return { da_pagare: 'badge-red', acconto_versato: 'badge-orange', saldo: 'badge-green' }[stato] || 'badge-gray'
-}
-export function getStatoLabel(stato) {
-  return { da_pagare: 'Da pagare', acconto_versato: 'Acconto versato', saldo: 'Pagato' }[stato] || stato || '—'
-}
-export function calcolaStato(totale, acconto) {
-  if (acconto >= totale && totale > 0) return 'saldo'
-  if (acconto > 0) return 'acconto_versato'
-  return 'da_pagare'
-}
+export const normalizeCliente = (name) => String(name || '').trim().toUpperCase()
+
 export function fmtEur(n) {
   return '€' + (n || 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
-export function fmtEurDec(n) {
-  return '€ ' + (n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 export function today() {
   return new Date().toISOString().split('T')[0]
 }
 export function tomorrow() {
   return new Date(Date.now() + 86400000).toISOString().split('T')[0]
-}
-export function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }

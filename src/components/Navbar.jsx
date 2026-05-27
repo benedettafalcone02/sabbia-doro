@@ -1,11 +1,14 @@
 import styles from './Navbar.module.css'
 
+// mobileTab: true  → appears in the bottom tab bar on mobile
+// mobileTab: false → desktop nav only (use for low-frequency pages)
 const PAGES = [
-  { id: 'dashboard',     label: 'Home',       icon: '🏠' },
-  { id: 'disponibilita', label: 'Dispon.',    icon: '🔍' },
-  { id: 'prenota',       label: 'Prenota',    icon: '➕' },
-  { id: 'clienti',       label: 'Clienti',    icon: '👤' },
-  { id: 'admin',         label: 'Gestione',   icon: '⚙️' },
+  { id: 'dashboard',     label: 'Home',     icon: '🏠', mobileTab: true  },
+  { id: 'disponibilita', label: 'Dispon.',  icon: '🔍', mobileTab: true  },
+  { id: 'prenota',       label: 'Prenota',  icon: '➕', mobileTab: true  },
+  { id: 'mappa',         label: 'Mappa',    icon: '🗺',  mobileTab: true  },
+  { id: 'clienti',       label: 'Clienti',  icon: '👤', mobileTab: true  },
+  { id: 'admin',         label: 'Gestione', icon: '⚙️', mobileTab: false },
 ]
 
 export default function Navbar({ activePage, onNavigate, onLogout }) {
@@ -16,18 +19,9 @@ export default function Navbar({ activePage, onNavigate, onLogout }) {
           <img src="/logosabbiadoro.png" alt="Sabbia d'Oro" className={styles.logoImg} />
         </div>
 
-        {/* Bottone mappa — solo mobile, vicino al logo */}
-        <button
-          className={`${styles.mappaBtn} ${activePage === 'mappa' ? styles.mappaBtnActive : ''}`}
-          onClick={() => onNavigate('mappa')}
-        >
-          <span>🗺</span>
-          <span className={styles.mappaBtnLabel}>Mappa</span>
-        </button>
-
-        {/* Desktop links */}
+        {/* Desktop links — all pages */}
         <div className={styles.links}>
-          {[...PAGES, { id: 'mappa', label: 'Mappa', icon: '🗺' }].map(p => (
+          {PAGES.map(p => (
             <button
               key={p.id}
               className={`${styles.navBtn} ${activePage === p.id ? styles.active : ''}`}
@@ -42,9 +36,9 @@ export default function Navbar({ activePage, onNavigate, onLogout }) {
         <button className={styles.logoutBtn} onClick={onLogout}>Esci</button>
       </nav>
 
-      {/* MOBILE BOTTOM TAB BAR */}
+      {/* Mobile bottom tab bar — mobileTab: true pages only */}
       <div className={styles.mobileNav}>
-        {PAGES.map(p => (
+        {PAGES.filter(p => p.mobileTab).map(p => (
           <button
             key={p.id}
             className={`${styles.mobileTab} ${activePage === p.id ? styles.active : ''}`}
