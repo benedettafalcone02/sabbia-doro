@@ -18,11 +18,17 @@
   --radius: 18px;
   --radius-sm: 12px;
 
-  --shadow: 0 1px 3px rgba(0, 0, 0, .04);
-  --shadow-md: 0 10px 30px rgba(15, 23, 42, .08);
+  /* Improved depth hierarchy */
+  --shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, .09), 0 2px 8px rgba(15, 23, 42, .05);
+  --shadow-lg: 0 20px 48px rgba(15, 23, 42, .13), 0 8px 16px rgba(15, 23, 42, .06);
 
   --font-display: 'Manrope', sans-serif;
   --font-body: 'Inter', sans-serif;
+
+  /* Transition presets */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 *,
@@ -39,12 +45,13 @@ html {
 
 body {
   font-family: var(--font-body);
-  background: #F6F8FB;
+  background: #eef2f7;
   color: var(--text);
   min-height: 100vh;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ───────────────── PAGE CONTENT ───────────────── */
@@ -105,13 +112,20 @@ body {
   font-size: 13px;
   font-weight: 600;
 
-  transition: all .18s ease;
+  transition: transform .15s var(--ease-out), box-shadow .15s ease, background .15s ease, border-color .15s ease;
 
   white-space: nowrap;
+
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn:hover {
   transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: .08s;
 }
 
 .btn-primary {
@@ -176,9 +190,9 @@ body {
 
   border-radius: var(--radius);
 
-  border: 1px solid #EAEFF5;
+  border: 1px solid rgba(31, 78, 121, .06);
 
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
 
   padding: 22px;
 }
@@ -203,15 +217,13 @@ body {
 
   border-radius: var(--radius);
 
-  border: 1px solid #EEF2F7;
+  border: 1px solid rgba(31, 78, 121, .06);
 
   padding: 18px 20px;
 
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
 
-  transition: .2s ease;
-
-  backdrop-filter: blur(10px);
+  transition: transform .2s var(--ease-out), box-shadow .2s ease;
 
   position: relative;
 
@@ -543,14 +555,24 @@ tbody td {
 
 /* ───────────────── MODAL ───────────────── */
 
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
 .modal-overlay {
   position: fixed;
 
   inset: 0;
 
-  background: rgba(15, 23, 42, .45);
+  background: rgba(15, 23, 42, .5);
 
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
 
   z-index: 500;
 
@@ -559,6 +581,8 @@ tbody td {
   justify-content: center;
 
   padding: 16px;
+
+  animation: overlayIn .18s ease;
 }
 
 .modal {
@@ -572,8 +596,9 @@ tbody td {
 
   border-radius: 24px;
 
-  box-shadow:
-    0 20px 60px rgba(15, 23, 42, .18);
+  box-shadow: var(--shadow-lg);
+
+  animation: modalIn .22s var(--ease-out);
 }
 
 .modal-sm {
@@ -632,6 +657,16 @@ tbody td {
 
 /* ───────────────── TOAST ───────────────── */
 
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes loadingPulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.92); }
+}
+
 .toast {
   position: fixed;
 
@@ -648,34 +683,32 @@ tbody td {
 
   padding: 14px 16px;
 
-  box-shadow:
-    0 10px 30px rgba(0, 0, 0, .1);
+  box-shadow: var(--shadow-lg);
 
   border-left: 4px solid var(--navy);
 
   font-size: 13px;
   font-weight: 600;
 
-  animation: slideUp .25s ease;
+  animation: slideUp .25s var(--ease-out);
 }
 
-.toast.success {
-  border-left-color: var(--green);
+.toast.success { border-left-color: var(--green); }
+.toast.error   { border-left-color: var(--red); }
+
+/* Loading icon animation — applied in LoadingScreen component */
+.loading-icon {
+  animation: loadingPulse 1.6s ease-in-out infinite;
+  display: inline-block;
 }
 
-.toast.error {
-  border-left-color: var(--red);
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(12px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
+/* Mobile toast: render above the bottom tab bar */
+@media (max-width: 768px) {
+  .toast {
+    bottom: calc(68px + env(safe-area-inset-bottom) + 12px);
+    left: 16px;
+    right: 16px;
+    max-width: none;
   }
 }
 
@@ -733,7 +766,7 @@ tbody td {
   font-size: 16px;
   font-weight: 700;
 
-  color: var(--red);
+  color: var(--navy);
 }
 
 /* ───────────────── MOBILE ───────────────── */

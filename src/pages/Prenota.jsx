@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { today } from '../lib/data'
+import LoadingScreen from '../components/LoadingScreen'
 
 export default function Prenota({ db, showToast, onReload }) {
   const { postazioni, clienti, loading } = db
@@ -88,13 +89,7 @@ export default function Prenota({ db, showToast, onReload }) {
     setSaving(false)
   }
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
-      <div style={{ fontSize: 40 }}>🌊</div>
-      <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
-    </div>
-  )
+  if (loading) return <LoadingScreen />
 
   const libere = postazioni.filter(p => p.stato === 'libero')
 

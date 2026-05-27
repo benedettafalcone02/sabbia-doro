@@ -1,5 +1,6 @@
 import { useState, useCallback, Fragment } from 'react'
 import Modal from '../components/Modal'
+import LoadingScreen from '../components/LoadingScreen'
 import { fmtEur } from '../lib/data'
 import styles from './Mappa.module.css'
 
@@ -10,14 +11,6 @@ const FILTRI = [
   { id: 'liberi',     label: '🟢 Liberi' },
   { id: 'occupati',   label: '🔴 Occupati' },
 ]
-
-const loadingPlaceholder = (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
-    <div style={{ fontSize: 40 }}>🌊</div>
-    <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
-  </div>
-)
 
 // showToast used in upcoming "libera postazione" feature (Phase 1.5)
 // eslint-disable-next-line no-unused-vars
@@ -34,7 +27,7 @@ export default function Mappa({ db, onNavigate, showToast }) {
     return true
   }, [filtro])
 
-  if (loading) return loadingPlaceholder
+  if (loading) return <LoadingScreen />
 
   function renderRigaOmbrelloni(fila, settore, cls) {
     const items = postazioni

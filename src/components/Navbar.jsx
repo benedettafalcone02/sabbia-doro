@@ -44,7 +44,9 @@ export default function Navbar({ activePage, onNavigate, onLogout }) {
             className={`${styles.mobileTab} ${activePage === p.id ? styles.active : ''}`}
             onClick={() => onNavigate(p.id)}
           >
-            <span className={styles.mobileIcon}>{p.icon}</span>
+            <div className={styles.mobileIconWrap}>
+              <span className={styles.mobileIcon}>{p.icon}</span>
+            </div>
             <span className={styles.mobileLabel}>{p.label}</span>
           </button>
         ))}

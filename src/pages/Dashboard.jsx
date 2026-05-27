@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import LoadingScreen from '../components/LoadingScreen'
 
 export default function Dashboard({ db, onNavigate }) {
   const { postazioni, clienti, loading } = db
@@ -15,12 +16,7 @@ export default function Dashboard({ db, onNavigate }) {
   const aPct = Math.round(stats.ombrA / 96 * 100)
   const bPct = Math.round(stats.ombrB / 112 * 100)
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
-      <div style={{ fontSize: 40 }}>🌊</div>
-      <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
-    </div>
-  )
+  if (loading) return <LoadingScreen />
 
   return (
     <div className="page-content">

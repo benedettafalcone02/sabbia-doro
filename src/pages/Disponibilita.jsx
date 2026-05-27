@@ -1,18 +1,13 @@
 import { useState } from 'react'
 import { fmtEur } from '../lib/data'
+import LoadingScreen from '../components/LoadingScreen'
 
 export default function Disponibilita({ db }) {
   const { postazioni, loading } = db
   const [tipo, setTipo]       = useState('tutti')
   const [settore, setSettore] = useState('tutti')
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
-      <div style={{ fontSize: 40 }}>🌊</div>
-      <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
-    </div>
-  )
+  if (loading) return <LoadingScreen />
 
   const libere = postazioni.filter(p => {
     if (p.stato !== 'libero') return false

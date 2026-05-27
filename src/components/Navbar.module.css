@@ -1,11 +1,13 @@
 .nav {
-  background: #fff;
+  background: rgba(255, 255, 255, .97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 0 #eee, 0 2px 12px rgba(31,78,121,.05);
+  box-shadow: 0 1px 0 rgba(31,78,121,.07), 0 4px 16px rgba(31,78,121,.06);
   min-height: 64px;
   padding: 0 20px;
   gap: 8px;
@@ -30,12 +32,14 @@
 }
 .navBtn {
   background: none; border: none; color: var(--muted);
-  padding: 0 14px; height: 64px; cursor: pointer;
+  padding: 0 12px; height: 64px; cursor: pointer;
   font-family: var(--font-body); font-size: 13px; font-weight: 600;
-  border-bottom: 2px solid transparent; transition: all .15s;
+  border-bottom: 2.5px solid transparent; transition: color .15s, background .15s, border-color .15s;
   display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  border-radius: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.navBtn:hover { color: var(--navy); background: #f7f9ff; }
+.navBtn:hover { color: var(--navy); }
 .navBtn.active { color: var(--navy); border-bottom-color: var(--yellow); font-weight: 700; }
 .icon { font-size: 15px; }
 .label { font-size: 13px; }
@@ -77,21 +81,30 @@
   }
   .mobileTab {
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; padding: 10px 4px 8px;
+    justify-content: center; padding: 8px 4px 10px;
     background: none; border: none; cursor: pointer;
-    font-family: var(--font-body); gap: 4px;
-    min-height: 68px; position: relative; transition: background .12s;
+    font-family: var(--font-body); gap: 3px;
+    min-height: 68px; position: relative;
+    transition: background .1s;
+    -webkit-tap-highlight-color: transparent;
   }
-  .mobileTab:active { background: #f5f8ff; }
-  .mobileTab.active::before {
-    content: '';
-    position: absolute; top: 0; left: 20%; right: 20%;
-    height: 3px; background: var(--yellow);
-    border-radius: 0 0 3px 3px;
+  .mobileTab:active { background: #f0f4ff; }
+
+  /* Active indicator: pill under the icon */
+  .mobileIconWrap {
+    position: relative;
+    width: 44px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 22px;
+    transition: background .2s ease;
   }
-  .mobileIcon { font-size: 22px; color: #c0c8d4; transition: .15s; line-height: 1; }
+  .mobileTab.active .mobileIconWrap {
+    background: rgba(31, 78, 121, .1);
+  }
+
+  .mobileIcon { font-size: 21px; color: #b8c4d4; transition: color .2s; line-height: 1; }
   .mobileTab.active .mobileIcon { color: var(--navy); }
-  .mobileLabel { font-size: 10px; font-weight: 500; color: #c0c8d4; transition: .15s; }
+  .mobileLabel { font-size: 10px; font-weight: 500; color: #b8c4d4; transition: color .2s; letter-spacing: .01em; }
   .mobileTab.active .mobileLabel { color: var(--navy); font-weight: 700; }
   .bodyPad { height: 68px; }
   .logoutBtn { font-size: 11px; padding: 6px 12px; margin-left: auto; }

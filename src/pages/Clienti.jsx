@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import Modal from '../components/Modal'
+import LoadingScreen from '../components/LoadingScreen'
 import { normalizeCliente } from '../lib/data'
 
 function fmtAttr(val) {
@@ -39,13 +40,7 @@ export default function Clienti({ db }) {
     }
   }, [postazioniCliente])
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '60vh', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
-      <div style={{ fontSize: 40 }}>🌊</div>
-      <div style={{ fontWeight: 600, fontSize: 15 }}>Caricamento dati...</div>
-    </div>
-  )
+  if (loading) return <LoadingScreen />
 
   function openDettaglio(c) { setSelected(c); setModalOpen(true) }
   function closeModal() { setModalOpen(false); setSelected(null) }
