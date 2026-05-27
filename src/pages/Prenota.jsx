@@ -57,7 +57,6 @@ export default function Prenota({ db, showToast, onReload }) {
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
 
-      // Upsert in occupazioni
       const { error } = await supabase
         .from('occupazioni')
         .upsert({
@@ -75,7 +74,6 @@ export default function Prenota({ db, showToast, onReload }) {
       showToast('Prenotazione salvata ✓')
       if (onReload) onReload()
 
-      // Reset form
       setForm({
         postazione_id: '', cliente_nome: '', tipo: 'stagionale',
         dotazione: '2lettini', data_inizio: today(), data_fine: '', note: '',
@@ -97,7 +95,7 @@ export default function Prenota({ db, showToast, onReload }) {
     <div className="page-content">
       <h1 className="page-title">Nuova Prenotazione</h1>
 
-      <div style={{ background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 2px 12px rgba(31,78,121,.07)' }}>
+      <div className="card">
 
         {/* POSTAZIONE */}
         <div className="form-group" style={{ marginBottom: 16 }}>
@@ -128,7 +126,7 @@ export default function Prenota({ db, showToast, onReload }) {
 
         {/* Info postazione selezionata */}
         {postazioneSelezionata && (
-          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13 }}>
+          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, border: '1px solid #dde8ff' }}>
             <strong style={{ color: 'var(--navy)' }}>
               {postazioneSelezionata.tipo === 'palma' ? '🌴 Palma' : '☂ Ombrellone'} {postazioneSelezionata.numero}
             </strong>
@@ -154,7 +152,6 @@ export default function Prenota({ db, showToast, onReload }) {
             placeholder="Nome cliente (cerca o scrivi nuovo)"
             style={{ fontSize: 15, padding: '12px 14px', textTransform: 'uppercase' }}
           />
-          {/* Suggerimenti clienti esistenti */}
           {showSuggerimenti && suggerimenti.length > 0 && (
             <div style={{
               position: 'absolute', top: '100%', left: 0, right: 0,
@@ -177,7 +174,7 @@ export default function Prenota({ db, showToast, onReload }) {
         {/* DOTAZIONE */}
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label>Dotazione</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
+          <div className="dotazione-grid">
             {[
               { val: '2lettini',         label: '2 Lettini' },
               { val: 'lettino_sdraio',   label: '1 Lettino + 1 Sdraio' },
@@ -186,15 +183,8 @@ export default function Prenota({ db, showToast, onReload }) {
             ].map(d => (
               <button
                 key={d.val}
+                className={`dotazione-btn${form.dotazione === d.val ? ' active' : ''}`}
                 onClick={() => handleDotazione(d.val)}
-                style={{
-                  padding: '10px 8px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  border: '2px solid',
-                  borderColor: form.dotazione === d.val ? 'var(--navy)' : '#dde3ed',
-                  background: form.dotazione === d.val ? 'var(--navy)' : '#fff',
-                  color: form.dotazione === d.val ? '#fff' : 'var(--muted)',
-                  cursor: 'pointer', fontFamily: 'var(--font-body)', transition: '.15s',
-                }}
               >
                 {d.label}
               </button>
@@ -203,20 +193,24 @@ export default function Prenota({ db, showToast, onReload }) {
         </div>
 
         {/* RIEPILOGO ATTREZZATURA */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+        <div className="stepper-grid">
           {[
             { label: 'Lettini 🛏', key: 'lettini' },
-            { label: 'Sdraio 🪑', key: 'sdraio' },
+            { label: 'Sdraio 🪑',  key: 'sdraio' },
             { label: 'Regista 🎬', key: 'regista' },
           ].map(a => (
-            <div key={a.key} style={{ background: '#f7f9ff', borderRadius: 10, padding: '10px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 }}>{a.label}</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <button onClick={() => set(a.key, Math.max(0, form[a.key] - 1))}
-                  style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #dde3ed', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--navy)', minWidth: 20, textAlign: 'center' }}>{form[a.key]}</span>
-                <button onClick={() => set(a.key, form[a.key] + 1)}
-                  style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #dde3ed', background: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            <div key={a.key} className="stepper-card">
+              <div className="stepper-label">{a.label}</div>
+              <div className="stepper-controls">
+                <button
+                  className="stepper-btn"
+                  onClick={() => set(a.key, Math.max(0, form[a.key] - 1))}
+                >−</button>
+                <span className="stepper-val">{form[a.key]}</span>
+                <button
+                  className="stepper-btn"
+                  onClick={() => set(a.key, form[a.key] + 1)}
+                >+</button>
               </div>
             </div>
           ))}

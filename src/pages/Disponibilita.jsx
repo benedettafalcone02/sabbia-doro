@@ -24,7 +24,7 @@ export default function Disponibilita({ db }) {
     <div className="page-content">
       <h1 className="page-title">Disponibilità</h1>
 
-      {/* Stats veloci */}
+      {/* Stats */}
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card green">
           <div className="stat-label">Libere totali</div>
@@ -39,36 +39,29 @@ export default function Disponibilita({ db }) {
       </div>
 
       {/* Filtri */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select
-          value={tipo}
-          onChange={e => setTipo(e.target.value)}
-          style={{ padding: '10px 13px', borderRadius: 8, border: '1.5px solid #dde3ed', fontFamily: 'var(--font-body)', fontSize: 13, background: '#fff' }}
-        >
+      <div className="filter-bar">
+        <select className="filter-select" value={tipo} onChange={e => setTipo(e.target.value)}>
           <option value="tutti">Tutti i tipi</option>
           <option value="palme">🌴 Solo Palme</option>
           <option value="ombrelloni">☂ Solo Ombrelloni</option>
         </select>
-        <select
-          value={settore}
-          onChange={e => setSettore(e.target.value)}
-          style={{ padding: '10px 13px', borderRadius: 8, border: '1.5px solid #dde3ed', fontFamily: 'var(--font-body)', fontSize: 13, background: '#fff' }}
-        >
+        <select className="filter-select" value={settore} onChange={e => setSettore(e.target.value)}>
           <option value="tutti">Tutti i settori</option>
           <option value="A">Settore A</option>
           <option value="B">Settore B</option>
         </select>
       </div>
 
-      {/* Risultati */}
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--navy)', marginBottom: 14 }}>
+      {/* Contatore risultati */}
+      <div className="section-label" style={{ marginBottom: 14 }}>
         {libere.length} postazioni libere
       </div>
 
       {libere.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-          <div style={{ fontWeight: 600 }}>Nessuna postazione libera con questi filtri</div>
+        <div className="empty-state">
+          <span className="empty-state-icon">🔍</span>
+          <div className="empty-state-title">Nessuna postazione trovata</div>
+          <div className="empty-state-sub">Nessuna postazione libera corrisponde ai filtri selezionati</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>

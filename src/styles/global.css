@@ -56,11 +56,17 @@ body {
 
 /* ───────────────── PAGE CONTENT ───────────────── */
 
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .page-content {
   padding: 20px;
   padding-bottom: 110px !important;
   max-width: 1400px;
   margin: 0 auto;
+  animation: fadeInUp .3s var(--ease-out);
 }
 
 /* ───────────────── PAGE TITLE ───────────────── */
@@ -769,6 +775,285 @@ tbody td {
   color: var(--navy);
 }
 
+/* ───────────────── SECTION LABEL ───────────────── */
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 12px;
+}
+
+/* ───────────────── QUICK ACTIONS ───────────────── */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: white;
+  border: 1px solid rgba(31,78,121,.08);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  box-shadow: var(--shadow);
+  transition: transform .2s var(--ease-out), box-shadow .2s ease, border-color .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.quick-action:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(31,78,121,.16);
+}
+
+.quick-action:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: .08s;
+}
+
+.quick-action-icon {
+  font-size: 22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.quick-action-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.quick-action-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  display: block;
+}
+
+/* ───────────────── PROGRESS BARS ───────────────── */
+
+.progress-row {
+  margin-bottom: 16px;
+}
+
+.progress-row:last-child {
+  margin-bottom: 0;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.progress-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.progress-count {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.progress-track {
+  background: #eef2f7;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .7s var(--ease-out);
+}
+
+/* ───────────────── DOTAZIONE PICKER ───────────────── */
+
+.dotazione-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.dotazione-btn {
+  padding: 12px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 2px solid #dde3ed;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all .15s var(--ease-out);
+  text-align: center;
+  line-height: 1.35;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dotazione-btn:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+  background: #f8faff;
+}
+
+.dotazione-btn.active {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: white;
+  box-shadow: 0 4px 12px rgba(31,78,121,.2);
+}
+
+/* ───────────────── STEPPER ───────────────── */
+
+.stepper-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.stepper-card {
+  background: #f7f9ff;
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.stepper-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 8px;
+}
+
+.stepper-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.stepper-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid #dde3ed;
+  background: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .1s ease;
+  color: var(--navy);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stepper-btn:hover {
+  border-color: var(--navy);
+  background: #f0f4ff;
+}
+
+.stepper-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--navy);
+  min-width: 24px;
+  text-align: center;
+  line-height: 1;
+}
+
+/* ───────────────── EMPTY STATE ───────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 56px 24px;
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid rgba(31,78,121,.06);
+  box-shadow: var(--shadow);
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+  opacity: .55;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.empty-state-sub {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  max-width: 280px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ───────────────── FILTER BAR ───────────────── */
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-select {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1.5px solid #dde3ed;
+  background: white;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s ease;
+}
+
+.filter-select:focus {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 3px rgba(125,184,230,.15);
+}
+
 /* ───────────────── MOBILE ───────────────── */
 
 .mobile-only {
@@ -847,5 +1132,20 @@ tbody td {
 
   .search-bar {
     flex-direction: column;
+  }
+}
+
+@media (min-width: 769px) {
+  .quick-actions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .page-content {
+    padding: 28px 32px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .page-content {
+    padding: 32px 40px;
   }
 }
