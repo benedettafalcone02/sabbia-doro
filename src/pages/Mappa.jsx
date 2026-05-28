@@ -2,7 +2,7 @@ import { useState, useCallback, Fragment } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
 import LoadingScreen from '../components/LoadingScreen'
-import { fmtEur } from '../lib/data'
+import { fmtEur, today } from '../lib/data'
 import styles from './Mappa.module.css'
 
 const FILTRI = [
@@ -13,48 +13,63 @@ const FILTRI = [
   { id: 'occupati',   label: '🔴 Occupati' },
 ]
 
+function fmtDate(d) {
+  if (!d) return '—'
+  const [y, m, g] = d.split('-')
+  return `${g}/${m}/${y}`
+}
+
 export default function Mappa({ db, onNavigate, showToast, onReload }) {
   const { postazioni, loading } = db
-  const [filtro, setFiltro]               = useState('tutti')
-  const [selected, setSelected]           = useState(null)
+  const [filtro, setFiltro]             = useState('tutti')
+  const [selected, setSelected]         = useState(null)
   const [confirmLibera, setConfirmLibera] = useState(false)
-  const [editMode, setEditMode]           = useState(false)
-  const [editForm, setEditForm]           = useState({ acconto: '' })
-  const [saving, setSaving]               = useState(false)
+  const [pagMode, setPagMode]           = useState(false)
+  const [showAddForm, setShowAddForm]   = useState(false)
+  const [newPag, setNewPag]             = useState({ importo: '', data: today(), note: '' })
+  const [saving, setSaving]             = useState(false)
 
   function closeModal() {
     setSelected(null)
     setConfirmLibera(false)
-    setEditMode(false)
+    setPagMode(false)
+    setShowAddForm(false)
+    setNewPag({ importo: '', data: today(), note: '' })
   }
 
-  function openEdit(post) {
-    setEditForm({
-      acconto: post.acconto != null ? String(post.acconto) : '',
-    })
-    setEditMode(true)
-    setConfirmLibera(false)
-  }
-
-  async function handleSaveEdit() {
+  async function handleAddPagamento() {
     const post = postazioni.find(p => p.id === selected)
-    if (!post) return
+    if (!post || !newPag.importo) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('occupazioni')
-        .update({
-          acconto: editForm.acconto ? parseFloat(editForm.acconto) : null,
-        })
-        .eq('tipo', post.tipo)
-        .eq('numero', post.numero)
+      const { error } = await supabase.from('pagamenti').insert({
+        occupazione_id: post.occ_id,
+        importo: parseFloat(newPag.importo),
+        data:    newPag.data || today(),
+        note:    newPag.note || null,
+      })
       if (error) throw error
-      showToast('Prezzi aggiornati ✓')
+      showToast('Pagamento aggiunto ✓')
       if (onReload) onReload()
-      closeModal()
+      setShowAddForm(false)
+      setNewPag({ importo: '', data: today(), note: '' })
     } catch (err) {
       console.error(err)
       showToast('Errore nel salvataggio', 'error')
+    }
+    setSaving(false)
+  }
+
+  async function handleDeletePagamento(id) {
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('pagamenti').delete().eq('id', id)
+      if (error) throw error
+      showToast('Pagamento eliminato ✓')
+      if (onReload) onReload()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nell\'eliminazione', 'error')
     }
     setSaving(false)
   }
@@ -116,11 +131,12 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
 
   const selPost = selected ? postazioni.find(p => p.id === selected) : null
 
-  const editRefPrice = selPost
+  const refPrice = selPost
     ? (selPost.tipo === 'palma' ? selPost.prezzo_stagionale : selPost.prezzo_2lettini)
     : 0
-  const editVersato = parseFloat(editForm.acconto) || 0
-  const editSaldo   = Math.max(0, editRefPrice - editVersato)
+  const pagamenti    = selPost?.pagamenti || []
+  const totalePagato = pagamenti.reduce((s, pg) => s + Number(pg.importo), 0)
+  const saldoResiduo = Math.max(0, refPrice - totalePagato)
 
   return (
     <div className="page-content">
@@ -187,8 +203,8 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
         open={!!selected}
         onClose={closeModal}
         title={selPost
-          ? editMode
-            ? `✏️ Modifica prezzi — ${selPost.cliente}`
+          ? pagMode
+            ? `💳 Pagamenti — ${selPost.cliente}`
             : confirmLibera
               ? '⚠️ Conferma liberazione'
               : selPost.tipo === 'palma'
@@ -199,6 +215,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
       >
         {selPost && (
           <div>
+            {/* Prezzo di riferimento */}
             <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13 }}>
               {selPost.tipo === 'palma'
                 ? <div>Stagionale: <strong style={{ color: 'var(--navy)', fontSize: 15 }}>{fmtEur(selPost.prezzo_stagionale)}</strong></div>
@@ -215,12 +232,13 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
               </span>
             </div>
 
-            {selPost.stato === 'occupato' && (
+            {/* Dettagli occupazione */}
+            {selPost.stato === 'occupato' && !pagMode && !confirmLibera && (
               <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '14px', marginBottom: 14, border: '1px solid #dde8ff' }}>
                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--navy)', marginBottom: 10 }}>
                   👤 {selPost.cliente || '—'}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: selPost.prezzo_totale != null ? 12 : 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                   {[
                     { icon: '🛏', label: 'Lettini', val: selPost.lettini },
                     { icon: '🪑', label: 'Sdraio',  val: selPost.sdraio },
@@ -236,52 +254,116 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                   ))}
                 </div>
 
-                {selPost.prezzo_totale != null && (
-                  <div style={{ borderTop: '1px solid #dde8ff', paddingTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
-                    {[
-                      { label: 'Totale',  val: selPost.prezzo_totale, color: 'var(--navy)' },
-                      { label: 'Acconto', val: selPost.acconto ?? 0,  color: 'var(--green)' },
-                      { label: 'Saldo',   val: Math.max(0, selPost.prezzo_totale - (selPost.acconto ?? 0)), color: 'var(--red)' },
-                    ].map(r => (
-                      <div key={r.label} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '8px 4px' }}>
-                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
+                {/* Riepilogo pagamenti */}
+                <div style={{ borderTop: '1px solid #dde8ff', marginTop: 10, paddingTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
+                  {[
+                    { label: 'Pagato',  val: totalePagato, color: 'var(--green)' },
+                    { label: 'Saldo',   val: saldoResiduo, color: 'var(--red)' },
+                  ].map(r => (
+                    <div key={r.label} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '8px 4px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PAGAMENTI MODE */}
+            {pagMode && (
+              <div>
+                {/* Lista pagamenti esistenti */}
+                {pagamenti.length === 0 && !showAddForm && (
+                  <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>Nessun pagamento registrato</p>
+                )}
+                {pagamenti.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    {pagamenti.map(pg => (
+                      <div key={pg.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f7f9ff', borderRadius: 8, marginBottom: 6, border: '1px solid #e8edf8' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 14 }}>{fmtEur(Number(pg.importo))}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmtDate(pg.data)}{pg.note ? ` · ${pg.note}` : ''}</div>
+                        </div>
+                        <button
+                          onClick={() => handleDeletePagamento(pg.id)}
+                          disabled={saving}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 16, padding: '4px 6px', lineHeight: 1 }}
+                        >
+                          🗑
+                        </button>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
-            )}
 
-            {selPost.stato === 'libero' ? (
-              <button
-                className="btn btn-yellow btn-lg"
-                style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => { closeModal(); onNavigate && onNavigate('prenota') }}
-              >
-                ➕ Prenota questa postazione
-              </button>
-            ) : editMode ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div className="form-group">
-                  <label style={{ fontSize: 12 }}>Acconto versato (€)</label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
-                    <input
-                      type="number" min="0" step="0.01"
-                      value={editForm.acconto}
-                      onChange={e => setEditForm(f => ({ ...f, acconto: e.target.value }))}
-                      placeholder="es. 200"
-                      style={{ paddingLeft: 26, fontSize: 15 }}
-                    />
+                {/* Form aggiunta pagamento */}
+                {showAddForm ? (
+                  <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px', border: '1px solid #dde8ff', marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', marginBottom: 8 }}>Nuovo pagamento</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: 11 }}>Importo (€)</label>
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none', fontSize: 13 }}>€</span>
+                          <input
+                            type="number" min="0" step="0.01"
+                            value={newPag.importo}
+                            onChange={e => setNewPag(f => ({ ...f, importo: e.target.value }))}
+                            placeholder="0.00"
+                            style={{ paddingLeft: 22, fontSize: 14 }}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: 11 }}>Data</label>
+                        <input
+                          type="date"
+                          value={newPag.data}
+                          onChange={e => setNewPag(f => ({ ...f, data: e.target.value }))}
+                          style={{ fontSize: 14 }}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 11 }}>Note (opzionale)</label>
+                      <input
+                        type="text"
+                        value={newPag.note}
+                        onChange={e => setNewPag(f => ({ ...f, note: e.target.value }))}
+                        placeholder="es. acconto, saldo finale..."
+                        style={{ fontSize: 13 }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', fontSize: 13 }} onClick={() => { setShowAddForm(false); setNewPag({ importo: '', data: today(), note: '' }) }}>
+                        Annulla
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: 2, justifyContent: 'center', fontSize: 13, opacity: saving || !newPag.importo ? .6 : 1 }}
+                        disabled={saving || !newPag.importo}
+                        onClick={handleAddPagamento}
+                      >
+                        {saving ? '⏳...' : '✅ Aggiungi'}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <button
+                    className="btn btn-outline"
+                    style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}
+                    onClick={() => setShowAddForm(true)}
+                  >
+                    ➕ Aggiungi pagamento
+                  </button>
+                )}
 
-                <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 14px', border: '1px solid #dde8ff', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                {/* Totale pagato + Saldo residuo */}
+                <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 14px', border: '1px solid #dde8ff', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 12 }}>
                   {[
-                    { label: 'Prezzo',  val: editRefPrice, color: 'var(--navy)' },
-                    { label: 'Versato', val: editVersato,  color: 'var(--green)' },
-                    { label: 'Saldo',   val: editSaldo,    color: 'var(--red)' },
+                    { label: 'Prezzo',  val: refPrice,     color: 'var(--navy)' },
+                    { label: 'Pagato',  val: totalePagato, color: 'var(--green)' },
+                    { label: 'Saldo',   val: saldoResiduo, color: 'var(--red)' },
                   ].map(r => (
                     <div key={r.label} style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
@@ -290,27 +372,20 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditMode(false)}>
-                    Annulla
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    style={{ flex: 2, justifyContent: 'center', opacity: saving ? .7 : 1 }}
-                    disabled={saving}
-                    onClick={handleSaveEdit}
-                  >
-                    {saving ? '⏳...' : '✅ Salva'}
-                  </button>
-                </div>
+                <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setPagMode(false)}>
+                  Chiudi
+                </button>
               </div>
-            ) : confirmLibera ? (
+            )}
+
+            {/* CONFERMA LIBERA */}
+            {confirmLibera && (
               <div>
                 <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--navy)', marginBottom: 6 }}>
                   Liberare la postazione di <strong>{selPost.cliente}</strong>?
                 </p>
                 <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
-                  L'occupazione verrà rimossa e la postazione tornerà disponibile.
+                  L'occupazione e tutti i pagamenti verranno rimossi.
                 </p>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmLibera(false)}>
@@ -326,14 +401,25 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                   </button>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {/* BOTTONI PRINCIPALI (stato normale) */}
+            {selPost.stato === 'libero' ? (
+              <button
+                className="btn btn-yellow btn-lg"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => { closeModal(); onNavigate && onNavigate('prenota') }}
+              >
+                ➕ Prenota questa postazione
+              </button>
+            ) : !pagMode && !confirmLibera ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button
                   className="btn btn-outline"
                   style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => openEdit(selPost)}
+                  onClick={() => setPagMode(true)}
                 >
-                  ✏️ Modifica prezzi
+                  💳 Gestisci pagamenti
                 </button>
                 <button
                   className="btn btn-outline"
@@ -357,7 +443,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                   Chiudi
                 </button>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </Modal>

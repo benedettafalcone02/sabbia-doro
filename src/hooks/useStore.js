@@ -14,12 +14,17 @@ export function useStore() {
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
-    const { data, error } = await supabase.from('occupazioni').select('*')
-    if (error) {
-      console.error('Supabase error:', error)
+    const [occRes, pagRes] = await Promise.all([
+      supabase.from('occupazioni').select('*'),
+      supabase.from('pagamenti').select('*'),
+    ])
+    if (occRes.error) {
+      console.error('Supabase error:', occRes.error)
       setDB(p => ({ ...p, loading: false }))
       return
     }
+    const data    = occRes.data
+    const pagData = pagRes.data || []
 
     setDB(prev => {
       const postazioni = prev.postazioni.map(p => {
@@ -28,6 +33,7 @@ export function useStore() {
         return {
           ...p,
           stato: 'occupato',
+          occ_id:     occ.id,
           cliente:    occ.cliente    || null,
           lettini:    Number(occ.lettini)  || 0,
           sdraio:     Number(occ.sdraio)   || 0,
@@ -40,6 +46,7 @@ export function useStore() {
           note:       occ.note       || null,
           acconto:       occ.acconto       != null ? Number(occ.acconto)       : null,
           prezzo_totale: occ.prezzo_totale != null ? Number(occ.prezzo_totale) : null,
+          pagamenti:  pagData.filter(pg => pg.occupazione_id === occ.id),
         }
       })
 
