@@ -178,7 +178,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--navy)', marginBottom: 10 }}>
                   👤 {selPost.cliente || '—'}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: selPost.prezzo_totale != null ? 12 : 0 }}>
                   {[
                     { icon: '🛏', label: 'Lettini', val: selPost.lettini },
                     { icon: '🪑', label: 'Sdraio',  val: selPost.sdraio },
@@ -193,6 +193,21 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                     </div>
                   ))}
                 </div>
+
+                {selPost.prezzo_totale != null && (
+                  <div style={{ borderTop: '1px solid #dde8ff', paddingTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                    {[
+                      { label: 'Totale',  val: selPost.prezzo_totale, color: 'var(--navy)' },
+                      { label: 'Acconto', val: selPost.acconto ?? 0,  color: 'var(--green)' },
+                      { label: 'Saldo',   val: Math.max(0, selPost.prezzo_totale - (selPost.acconto ?? 0)), color: 'var(--red)' },
+                    ].map(r => (
+                      <div key={r.label} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '8px 4px' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

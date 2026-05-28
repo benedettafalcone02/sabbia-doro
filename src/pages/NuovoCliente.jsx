@@ -18,6 +18,7 @@ export default function NuovoCliente({ db, showToast, onReload, onNavigate }) {
     regista: 0,
     data_inizio: today(),
     data_fine: '',
+    prezzo_totale: '',
     acconto: '',
     note: '',
   })
@@ -64,7 +65,8 @@ export default function NuovoCliente({ db, showToast, onReload, onNavigate }) {
       email:    c.email    || '',
       n_persone: c.n_persone || '',
       note:     c.note     || '',
-      acconto:  c.acconto  != null ? String(c.acconto) : '',
+      acconto:       c.acconto       != null ? String(c.acconto)       : '',
+      prezzo_totale: c.prezzo_totale != null ? String(c.prezzo_totale) : '',
       data_inizio: c.data_inizio || today(),
       data_fine:   c.data_fine   || '',
     }))
@@ -107,8 +109,9 @@ export default function NuovoCliente({ db, showToast, onReload, onNavigate }) {
         n_persone:  form.n_persone        ? parseInt(form.n_persone)    : null,
         data_inizio: form.data_inizio     || null,
         data_fine:   form.data_fine       || null,
-        note:       form.note.trim()      || null,
-        acconto:    form.acconto          ? parseFloat(form.acconto)    : null,
+        note:          form.note.trim()          || null,
+        prezzo_totale: form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
+        acconto:       form.acconto       ? parseFloat(form.acconto)       : null,
       })
 
       if (error) throw error
@@ -364,25 +367,47 @@ export default function NuovoCliente({ db, showToast, onReload, onNavigate }) {
           </div>
         </div>
 
-        {/* Acconto */}
-        <div className="form-group" style={{ marginBottom: 14 }}>
-          <label>Acconto ricevuto (€)</label>
-          <div style={{ position: 'relative' }}>
-            <span style={{
-              position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-              color: 'var(--muted)', fontWeight: 700, fontSize: 15, pointerEvents: 'none',
-            }}>€</span>
-            <input
-              type="number"
-              value={form.acconto}
-              onChange={e => set('acconto', e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              style={{ fontSize: 15, padding: '11px 14px', paddingLeft: 32 }}
-            />
+        {/* Prezzo totale + Acconto */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div className="form-group">
+            <label>Prezzo totale (€)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 15, pointerEvents: 'none' }}>€</span>
+              <input
+                type="number"
+                value={form.prezzo_totale}
+                onChange={e => set('prezzo_totale', e.target.value)}
+                placeholder="0.00"
+                min="0" step="0.01"
+                style={{ fontSize: 15, padding: '11px 14px', paddingLeft: 32 }}
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Acconto ricevuto (€)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 15, pointerEvents: 'none' }}>€</span>
+              <input
+                type="number"
+                value={form.acconto}
+                onChange={e => set('acconto', e.target.value)}
+                placeholder="0.00"
+                min="0" step="0.01"
+                style={{ fontSize: 15, padding: '11px 14px', paddingLeft: 32 }}
+              />
+            </div>
           </div>
         </div>
+
+        {/* Anteprima saldo */}
+        {form.prezzo_totale && (
+          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, border: '1px solid #dde8ff', display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--muted)', fontWeight: 600 }}>Saldo residuo</span>
+            <strong style={{ color: 'var(--navy)', fontSize: 15 }}>
+              € {Math.max(0, (parseFloat(form.prezzo_totale) || 0) - (parseFloat(form.acconto) || 0)).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </strong>
+          </div>
+        )}
 
         {/* Note */}
         <div className="form-group">

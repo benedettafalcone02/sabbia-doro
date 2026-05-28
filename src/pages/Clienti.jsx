@@ -79,7 +79,8 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
       email:       selected.email       || '',
       n_persone:   selected.n_persone   != null ? String(selected.n_persone) : '',
       note:        selected.note        || '',
-      acconto:     selected.acconto     != null ? String(selected.acconto)   : '',
+      acconto:       selected.acconto       != null ? String(selected.acconto)       : '',
+      prezzo_totale: selected.prezzo_totale != null ? String(selected.prezzo_totale) : '',
       data_inizio: selected.data_inizio || '',
       data_fine:   selected.data_fine   || '',
     })
@@ -100,7 +101,8 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
           email:       editForm.email.trim()     || null,
           n_persone:   editForm.n_persone        ? parseInt(editForm.n_persone)  : null,
           note:        editForm.note.trim()      || null,
-          acconto:     editForm.acconto          ? parseFloat(editForm.acconto)  : null,
+          acconto:       editForm.acconto       ? parseFloat(editForm.acconto)       : null,
+          prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
           data_inizio: editForm.data_inizio      || null,
           data_fine:   editForm.data_fine        || null,
         })
@@ -245,9 +247,16 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                       }).filter(Boolean).join(' · ')}
                     </div>
                   )}
-                  {c.acconto != null && (
-                    <div style={{ marginTop: 6 }}>
-                      <span className="badge badge-green">Acconto {fmtAcconto(c.acconto)}</span>
+                  {(c.acconto != null || c.prezzo_totale != null) && (
+                    <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {c.acconto != null && (
+                        <span className="badge badge-green">Acc. {fmtAcconto(c.acconto)}</span>
+                      )}
+                      {c.prezzo_totale != null && (
+                        <span className="badge" style={{ background: '#fff0f0', color: 'var(--red)', fontWeight: 700 }}>
+                          Saldo {fmtAcconto(Math.max(0, c.prezzo_totale - (c.acconto ?? 0)))}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -267,6 +276,7 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                   <th>Regista</th>
                   <th>Telefono</th>
                   <th>Acconto</th>
+                  <th>Saldo</th>
                   <th></th>
                 </tr>
               </thead>
@@ -299,6 +309,9 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                       <td style={{ color: 'var(--sky)' }}>{c.telefono || '—'}</td>
                       <td style={{ fontWeight: 600, color: c.acconto ? 'var(--green)' : 'var(--muted)' }}>
                         {c.acconto != null ? fmtAcconto(c.acconto) : '—'}
+                      </td>
+                      <td style={{ fontWeight: 600, color: c.prezzo_totale != null ? 'var(--red)' : 'var(--muted)' }}>
+                        {c.prezzo_totale != null ? fmtAcconto(Math.max(0, c.prezzo_totale - (c.acconto ?? 0))) : '—'}
                       </td>
                       <td>
                         <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); openDettaglio(c) }}>
@@ -346,7 +359,7 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                 </div>
               </div>
 
-              {(selected.n_persone || selected.data_inizio || selected.acconto != null) && (
+              {(selected.n_persone || selected.data_inizio || selected.acconto != null || selected.prezzo_totale != null) && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
                   {selected.n_persone && (
                     <div style={{ textAlign: 'center' }}>
@@ -366,6 +379,21 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                       <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--green)', marginTop: 2 }}>{fmtAcconto(selected.acconto)}</div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {selected.prezzo_totale != null && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
+                  {[
+                    { label: 'Totale',  val: selected.prezzo_totale,                                                                   color: 'var(--navy)' },
+                    { label: 'Acconto', val: selected.acconto ?? 0,                                                                    color: 'var(--green)' },
+                    { label: 'Saldo',   val: Math.max(0, selected.prezzo_totale - (selected.acconto ?? 0)),                             color: 'var(--red)' },
+                  ].map(r => (
+                    <div key={r.label} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: r.color }}>{fmtAcconto(r.val)}</div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -472,6 +500,19 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                   />
                 </div>
                 <div className="form-group">
+                  <label>Prezzo totale (€)</label>
+                  <input
+                    type="number"
+                    value={editForm.prezzo_totale}
+                    onChange={e => setEF('prezzo_totale', e.target.value)}
+                    placeholder="0.00"
+                    min="0" step="0.01"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
                   <label>Acconto (€)</label>
                   <input
                     type="number"
@@ -480,6 +521,14 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                     placeholder="0.00"
                     min="0" step="0.01"
                   />
+                </div>
+                <div className="form-group">
+                  <label>Saldo residuo</label>
+                  <div style={{ padding: '10px 12px', background: '#f7f9ff', borderRadius: 8, fontSize: 15, fontWeight: 700, color: 'var(--navy)', border: '1.5px solid #e0e6f8' }}>
+                    {editForm.prezzo_totale
+                      ? fmtAcconto(Math.max(0, (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)))
+                      : '—'}
+                  </div>
                 </div>
               </div>
 

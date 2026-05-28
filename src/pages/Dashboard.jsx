@@ -1,16 +1,26 @@
 import { useMemo } from 'react'
 import LoadingScreen from '../components/LoadingScreen'
+import { fmtEur } from '../lib/data'
 
 export default function Dashboard({ db, onNavigate }) {
   const { postazioni, clienti, loading } = db
 
-  const stats = useMemo(() => ({
-    occupate: postazioni.filter(p => p.stato === 'occupato').length,
-    libere:   postazioni.filter(p => p.stato === 'libero').length,
-    palme:    postazioni.filter(p => p.tipo === 'palma' && p.stato === 'occupato').length,
-    ombrA:    postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'A' && p.stato === 'occupato').length,
-    ombrB:    postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'B' && p.stato === 'occupato').length,
-  }), [postazioni])
+  const stats = useMemo(() => {
+    const occupate = postazioni.filter(p => p.stato === 'occupato')
+    const incassato = occupate.reduce((s, p) => s + (p.acconto ?? 0), 0)
+    const daIncassare = occupate
+      .filter(p => p.prezzo_totale != null)
+      .reduce((s, p) => s + Math.max(0, p.prezzo_totale - (p.acconto ?? 0)), 0)
+    return {
+      occupate: occupate.length,
+      libere:   postazioni.filter(p => p.stato === 'libero').length,
+      palme:    postazioni.filter(p => p.tipo === 'palma' && p.stato === 'occupato').length,
+      ombrA:    postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'A' && p.stato === 'occupato').length,
+      ombrB:    postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'B' && p.stato === 'occupato').length,
+      incassato,
+      daIncassare,
+    }
+  }, [postazioni])
 
   const pPct = Math.round(stats.palme / 84 * 100)
   const aPct = Math.round(stats.ombrA / 96 * 100)
@@ -43,6 +53,16 @@ export default function Dashboard({ db, onNavigate }) {
           <div className="stat-label">Clienti</div>
           <div className="stat-val">{clienti.length}</div>
           <div className="stat-sub">stagione 2025</div>
+        </div>
+        <div className="stat-card green">
+          <div className="stat-label">Incassato</div>
+          <div className="stat-val" style={{ fontSize: 'clamp(20px, 5vw, 28px)' }}>{fmtEur(stats.incassato)}</div>
+          <div className="stat-sub">totale acconti</div>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid var(--red)' }}>
+          <div className="stat-label">Da incassare</div>
+          <div className="stat-val" style={{ fontSize: 'clamp(20px, 5vw, 28px)', color: 'var(--red)' }}>{fmtEur(stats.daIncassare)}</div>
+          <div className="stat-sub">saldi residui</div>
         </div>
       </div>
 

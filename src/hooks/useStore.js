@@ -38,7 +38,8 @@ export function useStore() {
           data_inizio: occ.data_inizio || null,
           data_fine:   occ.data_fine   || null,
           note:       occ.note       || null,
-          acconto:    occ.acconto    ? Number(occ.acconto) : null,
+          acconto:      occ.acconto      ? Number(occ.acconto)      : null,
+          prezzo_totale: occ.prezzo_totale ? Number(occ.prezzo_totale) : null,
         }
       })
 
@@ -57,7 +58,8 @@ export function useStore() {
             data_inizio: occ.data_inizio || '',
             data_fine:   occ.data_fine   || '',
             note:        occ.note        || '',
-            acconto:     occ.acconto     ? Number(occ.acconto) : null,
+            acconto:      occ.acconto      ? Number(occ.acconto)      : null,
+            prezzo_totale: occ.prezzo_totale ? Number(occ.prezzo_totale) : null,
             postazioni_occ: [],
           }
         }

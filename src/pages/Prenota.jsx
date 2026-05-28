@@ -17,6 +17,8 @@ export default function Prenota({ db, showToast, onReload }) {
     lettini: 0,
     sdraio: 0,
     regista: 0,
+    prezzo_totale: '',
+    acconto: '',
   })
   const [saving, setSaving] = useState(false)
   const [cercaCliente, setCercaCliente] = useState('')
@@ -75,6 +77,8 @@ export default function Prenota({ db, showToast, onReload }) {
           lettini: form.lettini,
           sdraio: form.sdraio,
           regista: form.regista,
+          prezzo_totale: form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
+          acconto:       form.acconto       ? parseFloat(form.acconto)       : null,
         })
 
       if (error) throw error
@@ -85,7 +89,7 @@ export default function Prenota({ db, showToast, onReload }) {
       setForm({
         postazione_id: '', cliente_nome: '', tipo: 'stagionale',
         dotazione: '2lettini', data_inizio: today(), data_fine: '', note: '',
-        lettini: 2, sdraio: 0, regista: 0,
+        lettini: 2, sdraio: 0, regista: 0, prezzo_totale: '', acconto: '',
       })
       setCercaCliente('')
     } catch (err) {
@@ -223,6 +227,47 @@ export default function Prenota({ db, showToast, onReload }) {
             </div>
           ))}
         </div>
+
+        {/* PREZZI */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div className="form-group">
+            <label>Prezzo totale (€)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
+              <input
+                type="number"
+                value={form.prezzo_totale}
+                onChange={e => set('prezzo_totale', e.target.value)}
+                placeholder="0.00"
+                min="0" step="0.01"
+                style={{ fontSize: 15, padding: '12px 14px', paddingLeft: 28 }}
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Acconto (€)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
+              <input
+                type="number"
+                value={form.acconto}
+                onChange={e => set('acconto', e.target.value)}
+                placeholder="0.00"
+                min="0" step="0.01"
+                style={{ fontSize: 15, padding: '12px 14px', paddingLeft: 28 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {form.prezzo_totale && (
+          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, border: '1px solid #dde8ff', display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--muted)', fontWeight: 600 }}>Saldo residuo</span>
+            <strong style={{ color: 'var(--navy)', fontSize: 15 }}>
+              € {Math.max(0, (parseFloat(form.prezzo_totale) || 0) - (parseFloat(form.acconto) || 0)).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            </strong>
+          </div>
+        )}
 
         {/* NOTE */}
         <div className="form-group" style={{ marginBottom: 20 }}>
