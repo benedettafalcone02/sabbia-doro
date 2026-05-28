@@ -43,7 +43,7 @@ export default function App() {
       <Navbar activePage={page} onNavigate={setPage} onLogout={() => setLoggedIn(false)} />
 
       {page === 'dashboard'     && <Dashboard     db={db} onNavigate={setPage} />}
-      {page === 'mappa'         && <Mappa          db={db} onNavigate={setPage} showToast={showToast} />}
+      {page === 'mappa'         && <Mappa          db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
       {page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} />}
       {page === 'clienti'       && <Clienti        db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
       {page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={setPage} />}

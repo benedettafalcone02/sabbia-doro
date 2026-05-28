@@ -1,4 +1,5 @@
 import { useState, useCallback, Fragment } from 'react'
+import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
 import LoadingScreen from '../components/LoadingScreen'
 import { fmtEur } from '../lib/data'
@@ -12,12 +13,38 @@ const FILTRI = [
   { id: 'occupati',   label: '🔴 Occupati' },
 ]
 
-// showToast used in upcoming "libera postazione" feature (Phase 1.5)
-// eslint-disable-next-line no-unused-vars
-export default function Mappa({ db, onNavigate, showToast }) {
+export default function Mappa({ db, onNavigate, showToast, onReload }) {
   const { postazioni, loading } = db
-  const [filtro, setFiltro] = useState('tutti')
-  const [selected, setSelected] = useState(null)
+  const [filtro, setFiltro]         = useState('tutti')
+  const [selected, setSelected]     = useState(null)
+  const [confirmLibera, setConfirmLibera] = useState(false)
+  const [saving, setSaving]         = useState(false)
+
+  function closeModal() {
+    setSelected(null)
+    setConfirmLibera(false)
+  }
+
+  async function handleLibera() {
+    const post = postazioni.find(p => p.id === selected)
+    if (!post) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('occupazioni')
+        .delete()
+        .eq('tipo', post.tipo)
+        .eq('numero', post.numero)
+      if (error) throw error
+      showToast('Postazione liberata ✓')
+      if (onReload) onReload()
+      closeModal()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nella liberazione', 'error')
+    }
+    setSaving(false)
+  }
 
   const isVisible = useCallback((p) => {
     if (filtro === 'palme')      return p.tipo === 'palma'
@@ -118,8 +145,14 @@ export default function Mappa({ db, onNavigate, showToast }) {
       {/* POPUP */}
       <Modal
         open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selPost ? (selPost.tipo === 'palma' ? `🌴 Palma ${selPost.numero} · F${selPost.fila}` : `☂ Ombr. ${selPost.numero} S.${selPost.settore} · F${selPost.fila}`) : ''}
+        onClose={closeModal}
+        title={selPost
+          ? confirmLibera
+            ? '⚠️ Conferma liberazione'
+            : selPost.tipo === 'palma'
+              ? `🌴 Palma ${selPost.numero} · F${selPost.fila}`
+              : `☂ Ombr. ${selPost.numero} S.${selPost.settore} · F${selPost.fila}`
+          : ''}
         size="modal-sm"
       >
         {selPost && (
@@ -167,18 +200,60 @@ export default function Mappa({ db, onNavigate, showToast }) {
               <button
                 className="btn btn-yellow btn-lg"
                 style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => { setSelected(null); onNavigate && onNavigate('prenota') }}
+                onClick={() => { closeModal(); onNavigate && onNavigate('prenota') }}
               >
                 ➕ Prenota questa postazione
               </button>
+            ) : confirmLibera ? (
+              <div>
+                <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--navy)', marginBottom: 6 }}>
+                  Liberare la postazione di <strong>{selPost.cliente}</strong>?
+                </p>
+                <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+                  L'occupazione verrà rimossa e la postazione tornerà disponibile.
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn btn-outline"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => setConfirmLibera(false)}
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ flex: 1, justifyContent: 'center', background: 'var(--red)', color: '#fff' }}
+                    disabled={saving}
+                    onClick={handleLibera}
+                  >
+                    {saving ? '...' : '🗑 Conferma'}
+                  </button>
+                </div>
+              </div>
             ) : (
-              <button
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => setSelected(null)}
-              >
-                Chiudi
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  className="btn btn-outline"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => setConfirmLibera(true)}
+                >
+                  🔓 Libera postazione
+                </button>
+                <button
+                  className="btn"
+                  style={{ width: '100%', justifyContent: 'center', background: 'var(--red)', color: '#fff' }}
+                  onClick={() => setConfirmLibera(true)}
+                >
+                  🗑 Elimina prenotazione
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{ width: '100%', justifyContent: 'center', color: 'var(--muted)', borderColor: '#ddd' }}
+                  onClick={closeModal}
+                >
+                  Chiudi
+                </button>
+              </div>
             )}
           </div>
         )}
