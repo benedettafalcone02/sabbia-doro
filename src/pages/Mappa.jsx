@@ -37,6 +37,12 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
     setConfirmLibera(false)
   }
 
+  // saldo calcolato dal form in tempo reale
+  const saldoPreview = Math.max(
+    0,
+    (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)
+  )
+
   async function handleSaveEdit() {
     const post = postazioni.find(p => p.id === selected)
     if (!post) return
@@ -268,7 +274,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                         type="number" min="0" step="0.01"
                         value={editForm.prezzo_totale}
                         onChange={e => setEditForm(f => ({ ...f, prezzo_totale: e.target.value }))}
-                        placeholder="0.00"
+                        placeholder="es. 800"
                         style={{ paddingLeft: 26, fontSize: 15 }}
                       />
                     </div>
@@ -281,20 +287,26 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                         type="number" min="0" step="0.01"
                         value={editForm.acconto}
                         onChange={e => setEditForm(f => ({ ...f, acconto: e.target.value }))}
-                        placeholder="0.00"
+                        placeholder="es. 200"
                         style={{ paddingLeft: 26, fontSize: 15 }}
                       />
                     </div>
                   </div>
                 </div>
-                {editForm.prezzo_totale && (
-                  <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '8px 12px', fontSize: 13, display: 'flex', justifyContent: 'space-between', border: '1px solid #dde8ff' }}>
-                    <span style={{ color: 'var(--muted)', fontWeight: 600 }}>Saldo residuo</span>
-                    <strong style={{ color: 'var(--navy)' }}>
-                      {fmtEur(Math.max(0, (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)))}
-                    </strong>
-                  </div>
-                )}
+
+                <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 14px', border: '1px solid #dde8ff', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                  {[
+                    { label: 'Totale',  val: parseFloat(editForm.prezzo_totale) || 0, color: 'var(--navy)' },
+                    { label: 'Acconto', val: parseFloat(editForm.acconto) || 0,        color: 'var(--green)' },
+                    { label: 'Saldo',   val: saldoPreview,                             color: 'var(--red)' },
+                  ].map(r => (
+                    <div key={r.label} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
+                    </div>
+                  ))}
+                </div>
+
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditMode(false)}>
                     Annulla
