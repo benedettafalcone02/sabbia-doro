@@ -15,14 +15,50 @@ const FILTRI = [
 
 export default function Mappa({ db, onNavigate, showToast, onReload }) {
   const { postazioni, loading } = db
-  const [filtro, setFiltro]         = useState('tutti')
-  const [selected, setSelected]     = useState(null)
+  const [filtro, setFiltro]               = useState('tutti')
+  const [selected, setSelected]           = useState(null)
   const [confirmLibera, setConfirmLibera] = useState(false)
-  const [saving, setSaving]         = useState(false)
+  const [editMode, setEditMode]           = useState(false)
+  const [editForm, setEditForm]           = useState({ prezzo_totale: '', acconto: '' })
+  const [saving, setSaving]               = useState(false)
 
   function closeModal() {
     setSelected(null)
     setConfirmLibera(false)
+    setEditMode(false)
+  }
+
+  function openEdit(post) {
+    setEditForm({
+      prezzo_totale: post.prezzo_totale != null ? String(post.prezzo_totale) : '',
+      acconto:       post.acconto       != null ? String(post.acconto)       : '',
+    })
+    setEditMode(true)
+    setConfirmLibera(false)
+  }
+
+  async function handleSaveEdit() {
+    const post = postazioni.find(p => p.id === selected)
+    if (!post) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('occupazioni')
+        .update({
+          prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
+          acconto:       editForm.acconto       ? parseFloat(editForm.acconto)       : null,
+        })
+        .eq('tipo', post.tipo)
+        .eq('numero', post.numero)
+      if (error) throw error
+      showToast('Prezzi aggiornati ✓')
+      if (onReload) onReload()
+      closeModal()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nel salvataggio', 'error')
+    }
+    setSaving(false)
   }
 
   async function handleLibera() {
@@ -147,11 +183,13 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
         open={!!selected}
         onClose={closeModal}
         title={selPost
-          ? confirmLibera
-            ? '⚠️ Conferma liberazione'
-            : selPost.tipo === 'palma'
-              ? `🌴 Palma ${selPost.numero} · F${selPost.fila}`
-              : `☂ Ombr. ${selPost.numero} S.${selPost.settore} · F${selPost.fila}`
+          ? editMode
+            ? `✏️ Modifica prezzi — ${selPost.cliente}`
+            : confirmLibera
+              ? '⚠️ Conferma liberazione'
+              : selPost.tipo === 'palma'
+                ? `🌴 Palma ${selPost.numero} · F${selPost.fila}`
+                : `☂ Ombr. ${selPost.numero} S.${selPost.settore} · F${selPost.fila}`
           : ''}
         size="modal-sm"
       >
@@ -219,6 +257,58 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
               >
                 ➕ Prenota questa postazione
               </button>
+            ) : editMode ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div className="form-group">
+                    <label style={{ fontSize: 12 }}>Prezzo totale (€)</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={editForm.prezzo_totale}
+                        onChange={e => setEditForm(f => ({ ...f, prezzo_totale: e.target.value }))}
+                        placeholder="0.00"
+                        style={{ paddingLeft: 26, fontSize: 15 }}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontSize: 12 }}>Acconto (€)</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={editForm.acconto}
+                        onChange={e => setEditForm(f => ({ ...f, acconto: e.target.value }))}
+                        placeholder="0.00"
+                        style={{ paddingLeft: 26, fontSize: 15 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                {editForm.prezzo_totale && (
+                  <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '8px 12px', fontSize: 13, display: 'flex', justifyContent: 'space-between', border: '1px solid #dde8ff' }}>
+                    <span style={{ color: 'var(--muted)', fontWeight: 600 }}>Saldo residuo</span>
+                    <strong style={{ color: 'var(--navy)' }}>
+                      {fmtEur(Math.max(0, (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)))}
+                    </strong>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditMode(false)}>
+                    Annulla
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 2, justifyContent: 'center', opacity: saving ? .7 : 1 }}
+                    disabled={saving}
+                    onClick={handleSaveEdit}
+                  >
+                    {saving ? '⏳...' : '✅ Salva'}
+                  </button>
+                </div>
+              </div>
             ) : confirmLibera ? (
               <div>
                 <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--navy)', marginBottom: 6 }}>
@@ -228,11 +318,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                   L'occupazione verrà rimossa e la postazione tornerà disponibile.
                 </p>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    className="btn btn-outline"
-                    style={{ flex: 1, justifyContent: 'center' }}
-                    onClick={() => setConfirmLibera(false)}
-                  >
+                  <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmLibera(false)}>
                     Annulla
                   </button>
                   <button
@@ -247,6 +333,13 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  className="btn btn-outline"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => openEdit(selPost)}
+                >
+                  ✏️ Modifica prezzi
+                </button>
                 <button
                   className="btn btn-outline"
                   style={{ width: '100%', justifyContent: 'center' }}
