@@ -61,12 +61,24 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* iOS: prevent auto-zoom on input focus (requires font-size >= 16px) */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
 .page-content {
   padding: 20px;
   padding-bottom: 110px !important;
   max-width: 1400px;
   margin: 0 auto;
   animation: fadeInUp .3s var(--ease-out);
+}
+
+@media (max-width: 768px) {
+  .page-content {
+    padding: 10px 14px;
+    padding-bottom: 110px !important;
+  }
 }
 
 /* ───────────────── PAGE TITLE ───────────────── */
