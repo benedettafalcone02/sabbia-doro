@@ -20,7 +20,8 @@ function fmtAcconto(v) {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v)
 }
 
-export default function Clienti({ db, onNavigate, showToast, onReload }) {
+export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
+  const isAdmin = role === 'admin'
   const { clienti, postazioni, loading } = db
 
   const [search, setSearch]           = useState('')
@@ -176,7 +177,7 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
           <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
             {clienti.length} clienti
           </div>
-          {onNavigate && (
+          {isAdmin && onNavigate && (
             <button className="btn btn-primary btn-sm" onClick={() => onNavigate('nuovo-cliente')}>
               ➕ Nuovo
             </button>
@@ -247,7 +248,7 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                       }).filter(Boolean).join(' · ')}
                     </div>
                   )}
-                  {(c.acconto != null || c.prezzo_totale != null) && (
+                  {isAdmin && (c.acconto != null || c.prezzo_totale != null) && (
                     <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {c.acconto != null && (
                         <span className="badge badge-green">Acc. {fmtAcconto(c.acconto)}</span>
@@ -274,9 +275,9 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                   <th>Lettini</th>
                   <th>Sdraio</th>
                   <th>Regista</th>
-                  <th>Telefono</th>
-                  <th>Acconto</th>
-                  <th>Saldo</th>
+                  {isAdmin && <th>Telefono</th>}
+                  {isAdmin && <th>Acconto</th>}
+                  {isAdmin && <th>Saldo</th>}
                   <th></th>
                 </tr>
               </thead>
@@ -306,13 +307,17 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                       <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.lettini) : '—'}</td>
                       <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.sdraio)  : '—'}</td>
                       <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.regista) : '—'}</td>
-                      <td style={{ color: 'var(--sky)' }}>{c.telefono || '—'}</td>
-                      <td style={{ fontWeight: 600, color: c.acconto ? 'var(--green)' : 'var(--muted)' }}>
-                        {c.acconto != null ? fmtAcconto(c.acconto) : '—'}
-                      </td>
-                      <td style={{ fontWeight: 600, color: c.prezzo_totale != null ? 'var(--red)' : 'var(--muted)' }}>
-                        {c.prezzo_totale != null ? fmtAcconto(Math.max(0, c.prezzo_totale - (c.acconto ?? 0))) : '—'}
-                      </td>
+                      {isAdmin && <td style={{ color: 'var(--sky)' }}>{c.telefono || '—'}</td>}
+                      {isAdmin && (
+                        <td style={{ fontWeight: 600, color: c.acconto ? 'var(--green)' : 'var(--muted)' }}>
+                          {c.acconto != null ? fmtAcconto(c.acconto) : '—'}
+                        </td>
+                      )}
+                      {isAdmin && (
+                        <td style={{ fontWeight: 600, color: c.prezzo_totale != null ? 'var(--red)' : 'var(--muted)' }}>
+                          {c.prezzo_totale != null ? fmtAcconto(Math.max(0, c.prezzo_totale - (c.acconto ?? 0))) : '—'}
+                        </td>
+                      )}
                       <td>
                         <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); openDettaglio(c) }}>
                           Dettaglio
@@ -331,78 +336,82 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
       <Modal open={modalOpen} onClose={closeModal} title={modalTitle} size="modal-sm">
         {selected && !editMode && !deleteConfirm && (
           <div>
-            {/* Azioni */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <button className="btn btn-outline btn-sm" onClick={openEdit} style={{ flex: 1 }}>✏️ Modifica</button>
-              <button
-                className="btn btn-sm"
-                onClick={() => setDeleteConfirm(true)}
-                style={{ flex: 1, background: '#fff5f5', color: 'var(--red)', border: '1.5px solid #fde2e2' }}
-              >
-                🗑 Elimina
-              </button>
-            </div>
-
-            {/* Contatti */}
-            <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: selected.n_persone || selected.data_inizio ? 12 : 0 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Telefono</div>
-                  {selected.telefono
-                    ? <a href={`tel:${selected.telefono}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--sky)' }}>{selected.telefono}</a>
-                    : <span style={{ color: 'var(--muted)', fontSize: 13 }}>—</span>
-                  }
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Email</div>
-                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{selected.email || '—'}</span>
-                </div>
+            {/* Azioni — solo admin */}
+            {isAdmin && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <button className="btn btn-outline btn-sm" onClick={openEdit} style={{ flex: 1 }}>✏️ Modifica</button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => setDeleteConfirm(true)}
+                  style={{ flex: 1, background: '#fff5f5', color: 'var(--red)', border: '1.5px solid #fde2e2' }}
+                >
+                  🗑 Elimina
+                </button>
               </div>
+            )}
 
-              {(selected.n_persone || selected.data_inizio || selected.acconto != null || selected.prezzo_totale != null) && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
-                  {selected.n_persone && (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Persone</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--navy)', marginTop: 2 }}>{selected.n_persone}</div>
-                    </div>
-                  )}
-                  {selected.data_inizio && (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Check-in</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', marginTop: 2 }}>{fmtDate(selected.data_inizio)}</div>
-                    </div>
-                  )}
-                  {selected.acconto != null && (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Acconto</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--green)', marginTop: 2 }}>{fmtAcconto(selected.acconto)}</div>
-                    </div>
-                  )}
+            {/* Contatti — solo admin */}
+            {isAdmin && (
+              <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: selected.n_persone || selected.data_inizio ? 12 : 0 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Telefono</div>
+                    {selected.telefono
+                      ? <a href={`tel:${selected.telefono}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--sky)' }}>{selected.telefono}</a>
+                      : <span style={{ color: 'var(--muted)', fontSize: 13 }}>—</span>
+                    }
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Email</div>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{selected.email || '—'}</span>
+                  </div>
                 </div>
-              )}
 
-              {selected.prezzo_totale != null && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
-                  {[
-                    { label: 'Totale',  val: selected.prezzo_totale,                                                                   color: 'var(--navy)' },
-                    { label: 'Acconto', val: selected.acconto ?? 0,                                                                    color: 'var(--green)' },
-                    { label: 'Saldo',   val: Math.max(0, selected.prezzo_totale - (selected.acconto ?? 0)),                             color: 'var(--red)' },
-                  ].map(r => (
-                    <div key={r.label} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: r.color }}>{fmtAcconto(r.val)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                {(selected.n_persone || selected.data_inizio || selected.acconto != null || selected.prezzo_totale != null) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
+                    {selected.n_persone && (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Persone</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--navy)', marginTop: 2 }}>{selected.n_persone}</div>
+                      </div>
+                    )}
+                    {selected.data_inizio && (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Check-in</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', marginTop: 2 }}>{fmtDate(selected.data_inizio)}</div>
+                      </div>
+                    )}
+                    {selected.acconto != null && (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Acconto</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--green)', marginTop: 2 }}>{fmtAcconto(selected.acconto)}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {selected.note && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff', fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
-                  📝 {selected.note}
-                </div>
-              )}
-            </div>
+                {selected.prezzo_totale != null && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
+                    {[
+                      { label: 'Totale',  val: selected.prezzo_totale,                                          color: 'var(--navy)' },
+                      { label: 'Acconto', val: selected.acconto ?? 0,                                           color: 'var(--green)' },
+                      { label: 'Saldo',   val: Math.max(0, selected.prezzo_totale - (selected.acconto ?? 0)),   color: 'var(--red)' },
+                    ].map(r => (
+                      <div key={r.label} style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: r.color }}>{fmtAcconto(r.val)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selected.note && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff', fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
+                    📝 {selected.note}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Riepilogo attrezzatura */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
@@ -440,14 +449,16 @@ export default function Clienti({ db, onNavigate, showToast, onReload }) {
                       <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
                         {parts.length > 0 ? parts.join(' · ') : '—'}
                       </span>
-                      <button
-                        className="btn btn-sm"
-                        style={{ background: '#fff5f5', color: 'var(--red)', border: '1px solid #fde2e2', height: 28, padding: '0 10px', fontSize: 11 }}
-                        onClick={() => liberaPostazione(p)}
-                        disabled={saving}
-                      >
-                        Libera
-                      </button>
+                      {isAdmin && (
+                        <button
+                          className="btn btn-sm"
+                          style={{ background: '#fff5f5', color: 'var(--red)', border: '1px solid #fde2e2', height: 28, padding: '0 10px', fontSize: 11 }}
+                          onClick={() => liberaPostazione(p)}
+                          disabled={saving}
+                        >
+                          Libera
+                        </button>
+                      )}
                     </div>
                   </div>
                 )

@@ -13,7 +13,7 @@ const PAGES = [
 
 export default function Navbar({ activePage, onNavigate, onLogout, role }) {
   const visibili = role === 'spiaggista'
-    ? PAGES.filter(p => p.id === 'mappa')
+    ? PAGES.filter(p => p.id === 'mappa' || p.id === 'clienti')
     : PAGES
 
   return (
@@ -36,7 +36,7 @@ export default function Navbar({ activePage, onNavigate, onLogout, role }) {
           ))}
         </div>
 
-        <button className={styles.logoutBtn} onClick={onLogout}>Esci</button>
+        {role !== 'spiaggista' && <button className={styles.logoutBtn} onClick={onLogout}>Esci</button>}
       </nav>
 
       <div className={styles.mobileNav}>

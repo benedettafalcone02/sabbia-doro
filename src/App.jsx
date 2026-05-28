@@ -36,18 +36,18 @@ export default function App() {
     </div>
   )
 
-  if (!role) return <Login onLogin={setRole} />
+  if (!role) return <Login onLogin={r => { setRole(r); if (r === 'spiaggista') setPage('mappa') }} />
 
   const isAdmin = role === 'admin'
 
   return (
     <>
-      <Navbar activePage={page} onNavigate={setPage} onLogout={() => setRole(null)} role={role} />
+      <Navbar activePage={page} onNavigate={setPage} onLogout={() => { setRole(null); setPage('dashboard') }} role={role} />
 
       {isAdmin && page === 'dashboard'     && <Dashboard     db={db} onNavigate={setPage} />}
       {page === 'mappa'                    && <Mappa          db={db} onNavigate={setPage} showToast={showToast} onReload={reload} role={role} />}
       {isAdmin && page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} />}
-      {isAdmin && page === 'clienti'       && <Clienti        db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
+      {page === 'clienti'                  && <Clienti        db={db} onNavigate={isAdmin ? setPage : undefined} showToast={showToast} onReload={reload} role={role} />}
       {isAdmin && page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={setPage} />}
       {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} />}
       {isAdmin && page === 'admin'         && <Admin          onReload={reload} />}
