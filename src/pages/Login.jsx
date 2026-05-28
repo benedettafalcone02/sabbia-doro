@@ -1,17 +1,23 @@
 import { useState } from 'react'
 import styles from './Login.module.css'
 
+const CREDENZIALI = [
+  { email: 'admin@sabbiadoro.it',      pwd: 'demo1234',    role: 'admin'       },
+  { email: 'spiaggista@sabbiadoro.it', pwd: 'spiaggia2025', role: 'spiaggista' },
+]
+
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('admin@sabbiadoro.it')
+  const [email, setEmail] = useState('')
   const [pwd, setPwd]     = useState('')
   const [error, setError] = useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (email === 'admin@sabbiadoro.it' && pwd === 'demo1234') {
-      onLogin()
+    const match = CREDENZIALI.find(c => c.email === email && c.pwd === pwd)
+    if (match) {
+      onLogin(match.role)
     } else {
-      setError('Credenziali errate. Demo: admin@sabbiadoro.it / demo1234')
+      setError('Credenziali errate.')
     }
   }
 
@@ -30,8 +36,8 @@ export default function Login({ onLogin }) {
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="admin@sabbiadoro.it"
+              onChange={e => { setEmail(e.target.value); setError('') }}
+              placeholder="email@sabbiadoro.it"
               required
             />
           </div>
@@ -53,11 +59,9 @@ export default function Login({ onLogin }) {
             className="btn btn-primary btn-lg"
             style={{ width: '100%', justifyContent: 'center', marginTop: 20 }}
           >
-            Accedi al Gestionale
+            Accedi
           </button>
         </form>
-
-        <p className={styles.hint}>Demo: admin@sabbiadoro.it / demo1234</p>
       </div>
     </div>
   )

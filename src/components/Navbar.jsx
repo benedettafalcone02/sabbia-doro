@@ -11,7 +11,11 @@ const PAGES = [
   { id: 'admin',         label: 'Gestione', icon: '⚙️', mobileTab: false },
 ]
 
-export default function Navbar({ activePage, onNavigate, onLogout }) {
+export default function Navbar({ activePage, onNavigate, onLogout, role }) {
+  const visibili = role === 'spiaggista'
+    ? PAGES.filter(p => p.id === 'mappa')
+    : PAGES
+
   return (
     <>
       <nav className={styles.nav}>
@@ -19,9 +23,8 @@ export default function Navbar({ activePage, onNavigate, onLogout }) {
           <img src="/logosabbiadoro.png" alt="Sabbia d'Oro" className={styles.logoImg} />
         </div>
 
-        {/* Desktop links — all pages */}
         <div className={styles.links}>
-          {PAGES.map(p => (
+          {visibili.map(p => (
             <button
               key={p.id}
               className={`${styles.navBtn} ${activePage === p.id ? styles.active : ''}`}
@@ -36,9 +39,8 @@ export default function Navbar({ activePage, onNavigate, onLogout }) {
         <button className={styles.logoutBtn} onClick={onLogout}>Esci</button>
       </nav>
 
-      {/* Mobile bottom tab bar — mobileTab: true pages only */}
       <div className={styles.mobileNav}>
-        {PAGES.filter(p => p.mobileTab).map(p => (
+        {visibili.filter(p => p.mobileTab).map(p => (
           <button
             key={p.id}
             className={`${styles.mobileTab} ${activePage === p.id ? styles.active : ''}`}

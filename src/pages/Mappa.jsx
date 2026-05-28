@@ -19,7 +19,8 @@ function fmtDate(d) {
   return `${g}/${m}/${y}`
 }
 
-export default function Mappa({ db, onNavigate, showToast, onReload }) {
+export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
+  const isAdmin = role === 'admin'
   const { postazioni, loading } = db
   const [filtro, setFiltro]             = useState('tutti')
   const [selected, setSelected]         = useState(null)
@@ -215,16 +216,18 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
       >
         {selPost && (
           <div>
-            {/* Prezzo di riferimento */}
-            <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13 }}>
-              {selPost.tipo === 'palma'
-                ? <div>Stagionale: <strong style={{ color: 'var(--navy)', fontSize: 15 }}>{fmtEur(selPost.prezzo_stagionale)}</strong></div>
-                : <div style={{ display: 'flex', gap: 14 }}>
-                    <div>2L: <strong>{fmtEur(selPost.prezzo_2lettini)}</strong></div>
-                    <div>L+R: <strong>{fmtEur(selPost.prezzo_lettino_regista)}</strong></div>
-                  </div>
-              }
-            </div>
+            {/* Prezzo di riferimento — solo admin */}
+            {isAdmin && (
+              <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13 }}>
+                {selPost.tipo === 'palma'
+                  ? <div>Stagionale: <strong style={{ color: 'var(--navy)', fontSize: 15 }}>{fmtEur(selPost.prezzo_stagionale)}</strong></div>
+                  : <div style={{ display: 'flex', gap: 14 }}>
+                      <div>2L: <strong>{fmtEur(selPost.prezzo_2lettini)}</strong></div>
+                      <div>L+R: <strong>{fmtEur(selPost.prezzo_lettino_regista)}</strong></div>
+                    </div>
+                }
+              </div>
+            )}
 
             <div style={{ marginBottom: 14 }}>
               <span className={`badge ${selPost.stato === 'libero' ? 'badge-green' : 'badge-red'}`}>
@@ -254,18 +257,20 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
                   ))}
                 </div>
 
-                {/* Riepilogo pagamenti */}
-                <div style={{ borderTop: '1px solid #dde8ff', marginTop: 10, paddingTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
-                  {[
-                    { label: 'Pagato',  val: totalePagato, color: 'var(--green)' },
-                    { label: 'Saldo',   val: saldoResiduo, color: 'var(--red)' },
-                  ].map(r => (
-                    <div key={r.label} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '8px 4px' }}>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
-                    </div>
-                  ))}
-                </div>
+                {/* Riepilogo pagamenti — solo admin */}
+                {isAdmin && (
+                  <div style={{ borderTop: '1px solid #dde8ff', marginTop: 10, paddingTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
+                    {[
+                      { label: 'Pagato',  val: totalePagato, color: 'var(--green)' },
+                      { label: 'Saldo',   val: saldoResiduo, color: 'var(--red)' },
+                    ].map(r => (
+                      <div key={r.label} style={{ textAlign: 'center', background: '#fff', borderRadius: 8, padding: '8px 4px' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -405,44 +410,56 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
 
             {/* BOTTONI PRINCIPALI (stato normale) */}
             {selPost.stato === 'libero' ? (
-              <button
-                className="btn btn-yellow btn-lg"
-                style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => { closeModal(); onNavigate && onNavigate('prenota') }}
-              >
-                ➕ Prenota questa postazione
-              </button>
-            ) : !pagMode && !confirmLibera ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              isAdmin ? (
                 <button
-                  className="btn btn-outline"
+                  className="btn btn-yellow btn-lg"
                   style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => setPagMode(true)}
+                  onClick={() => { closeModal(); onNavigate && onNavigate('prenota') }}
                 >
-                  💳 Gestisci pagamenti
+                  ➕ Prenota questa postazione
                 </button>
-                <button
-                  className="btn btn-outline"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => setConfirmLibera(true)}
-                >
-                  🔓 Libera postazione
-                </button>
-                <button
-                  className="btn"
-                  style={{ width: '100%', justifyContent: 'center', background: 'var(--red)', color: '#fff' }}
-                  onClick={() => setConfirmLibera(true)}
-                >
-                  🗑 Elimina prenotazione
-                </button>
-                <button
-                  className="btn btn-outline"
-                  style={{ width: '100%', justifyContent: 'center', color: 'var(--muted)', borderColor: '#ddd' }}
-                  onClick={closeModal}
-                >
+              ) : (
+                <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={closeModal}>
                   Chiudi
                 </button>
-              </div>
+              )
+            ) : !pagMode && !confirmLibera ? (
+              isAdmin ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button
+                    className="btn btn-outline"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => setPagMode(true)}
+                  >
+                    💳 Gestisci pagamenti
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => setConfirmLibera(true)}
+                  >
+                    🔓 Libera postazione
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ width: '100%', justifyContent: 'center', background: 'var(--red)', color: '#fff' }}
+                    onClick={() => setConfirmLibera(true)}
+                  >
+                    🗑 Elimina prenotazione
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    style={{ width: '100%', justifyContent: 'center', color: 'var(--muted)', borderColor: '#ddd' }}
+                    onClick={closeModal}
+                  >
+                    Chiudi
+                  </button>
+                </div>
+              ) : (
+                <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={closeModal}>
+                  Chiudi
+                </button>
+              )
             ) : null}
           </div>
         )}

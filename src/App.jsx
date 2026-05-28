@@ -17,8 +17,8 @@ import Admin         from './pages/Admin'
 import Toast         from './components/Toast'
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false)
-  const [page, setPage]         = useState('dashboard')
+  const [role, setRole] = useState(null)
+  const [page, setPage] = useState('dashboard')
   const { db, reload }          = useStore()
   const { toast, showToast }    = useToast()
 
@@ -36,19 +36,21 @@ export default function App() {
     </div>
   )
 
-  if (!loggedIn) return <Login onLogin={() => setLoggedIn(true)} />
+  if (!role) return <Login onLogin={setRole} />
+
+  const isAdmin = role === 'admin'
 
   return (
     <>
-      <Navbar activePage={page} onNavigate={setPage} onLogout={() => setLoggedIn(false)} />
+      <Navbar activePage={page} onNavigate={setPage} onLogout={() => setRole(null)} role={role} />
 
-      {page === 'dashboard'     && <Dashboard     db={db} onNavigate={setPage} />}
-      {page === 'mappa'         && <Mappa          db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
-      {page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} />}
-      {page === 'clienti'       && <Clienti        db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
-      {page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={setPage} />}
-      {page === 'disponibilita' && <Disponibilita  db={db} />}
-      {page === 'admin'         && <Admin          onReload={reload} />}
+      {isAdmin && page === 'dashboard'     && <Dashboard     db={db} onNavigate={setPage} />}
+      {page === 'mappa'                    && <Mappa          db={db} onNavigate={setPage} showToast={showToast} onReload={reload} role={role} />}
+      {isAdmin && page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} />}
+      {isAdmin && page === 'clienti'       && <Clienti        db={db} onNavigate={setPage} showToast={showToast} onReload={reload} />}
+      {isAdmin && page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={setPage} />}
+      {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} />}
+      {isAdmin && page === 'admin'         && <Admin          onReload={reload} />}
 
       <Toast toast={toast} />
     </>
