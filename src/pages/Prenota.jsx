@@ -57,9 +57,17 @@ export default function Prenota({ db, showToast, onReload }) {
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
 
+      const { error: delError } = await supabase
+        .from('occupazioni')
+        .delete()
+        .eq('tipo', pos.tipo)
+        .eq('numero', pos.numero)
+
+      if (delError) throw delError
+
       const { error } = await supabase
         .from('occupazioni')
-        .upsert({
+        .insert({
           tipo: pos.tipo,
           numero: pos.numero,
           cliente: form.cliente_nome.trim().toUpperCase(),
@@ -67,7 +75,7 @@ export default function Prenota({ db, showToast, onReload }) {
           lettini: form.lettini,
           sdraio: form.sdraio,
           regista: form.regista,
-        }, { onConflict: 'tipo,numero' })
+        })
 
       if (error) throw error
 

@@ -86,7 +86,15 @@ export default function NuovoCliente({ db, showToast, onReload, onNavigate }) {
     setSaving(true)
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
-      const { error } = await supabase.from('occupazioni').upsert({
+      const { error: delError } = await supabase
+        .from('occupazioni')
+        .delete()
+        .eq('tipo', pos.tipo)
+        .eq('numero', pos.numero)
+
+      if (delError) throw delError
+
+      const { error } = await supabase.from('occupazioni').insert({
         tipo:     pos.tipo,
         numero:   pos.numero,
         cliente:  form.nome.trim().toUpperCase(),
@@ -101,7 +109,7 @@ export default function NuovoCliente({ db, showToast, onReload, onNavigate }) {
         data_fine:   form.data_fine       || null,
         note:       form.note.trim()      || null,
         acconto:    form.acconto          ? parseFloat(form.acconto)    : null,
-      }, { onConflict: 'tipo,numero' })
+      })
 
       if (error) throw error
 
