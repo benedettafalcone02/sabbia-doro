@@ -3,7 +3,7 @@ import styles from './Login.module.css'
 
 const CREDENZIALI = [
   { email: 'admin@sabbiadoro.it',      pwd: 'demo1234',    role: 'admin'       },
-  { email: 'spiaggista@sabbiadoro.it', pwd: 'spiaggia2025', role: 'spiaggista' },
+  { email: 'sabbia2026', pwd: '1234', role: 'spiaggista' },
 ]
 
 export default function Login({ onLogin }) {
@@ -34,10 +34,10 @@ export default function Login({ onLogin }) {
           <div className="form-group">
             <label>Email</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={e => { setEmail(e.target.value); setError('') }}
-              placeholder="email@sabbiadoro.it"
+              placeholder="nome utente"
               required
             />
           </div>
