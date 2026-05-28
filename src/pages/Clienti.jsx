@@ -103,7 +103,6 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
         .update({
           cliente:       editForm.nome.trim().toUpperCase(),
           telefono:      editForm.telefono.trim()  || null,
-          email:         editForm.email.trim()     || null,
           n_persone:     editForm.n_persone        ? parseInt(editForm.n_persone)  : null,
           note:          editForm.note.trim()      || null,
           acconto:       editForm.acconto          ? parseFloat(editForm.acconto)       : null,
