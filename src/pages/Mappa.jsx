@@ -19,7 +19,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
   const [selected, setSelected]           = useState(null)
   const [confirmLibera, setConfirmLibera] = useState(false)
   const [editMode, setEditMode]           = useState(false)
-  const [editForm, setEditForm]           = useState({ prezzo_totale: '', acconto: '' })
+  const [editForm, setEditForm]           = useState({ acconto: '' })
   const [saving, setSaving]               = useState(false)
 
   function closeModal() {
@@ -30,18 +30,11 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
 
   function openEdit(post) {
     setEditForm({
-      prezzo_totale: post.prezzo_totale != null ? String(post.prezzo_totale) : '',
-      acconto:       post.acconto       != null ? String(post.acconto)       : '',
+      acconto: post.acconto != null ? String(post.acconto) : '',
     })
     setEditMode(true)
     setConfirmLibera(false)
   }
-
-  // saldo calcolato dal form in tempo reale
-  const saldoPreview = Math.max(
-    0,
-    (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)
-  )
 
   async function handleSaveEdit() {
     const post = postazioni.find(p => p.id === selected)
@@ -51,8 +44,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
       const { error } = await supabase
         .from('occupazioni')
         .update({
-          prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
-          acconto:       editForm.acconto       ? parseFloat(editForm.acconto)       : null,
+          acconto: editForm.acconto ? parseFloat(editForm.acconto) : null,
         })
         .eq('tipo', post.tipo)
         .eq('numero', post.numero)
@@ -123,6 +115,12 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
   }
 
   const selPost = selected ? postazioni.find(p => p.id === selected) : null
+
+  const editRefPrice = selPost
+    ? (selPost.tipo === 'palma' ? selPost.prezzo_stagionale : selPost.prezzo_2lettini)
+    : 0
+  const editVersato = parseFloat(editForm.acconto) || 0
+  const editSaldo   = Math.max(0, editRefPrice - editVersato)
 
   return (
     <div className="page-content">
@@ -265,40 +263,25 @@ export default function Mappa({ db, onNavigate, showToast, onReload }) {
               </button>
             ) : editMode ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div className="form-group">
-                    <label style={{ fontSize: 12 }}>Prezzo totale (€)</label>
-                    <div style={{ position: 'relative' }}>
-                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={editForm.prezzo_totale}
-                        onChange={e => setEditForm(f => ({ ...f, prezzo_totale: e.target.value }))}
-                        placeholder="es. 800"
-                        style={{ paddingLeft: 26, fontSize: 15 }}
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label style={{ fontSize: 12 }}>Acconto (€)</label>
-                    <div style={{ position: 'relative' }}>
-                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={editForm.acconto}
-                        onChange={e => setEditForm(f => ({ ...f, acconto: e.target.value }))}
-                        placeholder="es. 200"
-                        style={{ paddingLeft: 26, fontSize: 15 }}
-                      />
-                    </div>
+                <div className="form-group">
+                  <label style={{ fontSize: 12 }}>Acconto versato (€)</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={editForm.acconto}
+                      onChange={e => setEditForm(f => ({ ...f, acconto: e.target.value }))}
+                      placeholder="es. 200"
+                      style={{ paddingLeft: 26, fontSize: 15 }}
+                    />
                   </div>
                 </div>
 
                 <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 14px', border: '1px solid #dde8ff', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                   {[
-                    { label: 'Totale',  val: parseFloat(editForm.prezzo_totale) || 0, color: 'var(--navy)' },
-                    { label: 'Acconto', val: parseFloat(editForm.acconto) || 0,        color: 'var(--green)' },
-                    { label: 'Saldo',   val: saldoPreview,                             color: 'var(--red)' },
+                    { label: 'Prezzo',  val: editRefPrice, color: 'var(--navy)' },
+                    { label: 'Versato', val: editVersato,  color: 'var(--green)' },
+                    { label: 'Saldo',   val: editSaldo,    color: 'var(--red)' },
                   ].map(r => (
                     <div key={r.label} style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
