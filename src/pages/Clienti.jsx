@@ -94,22 +94,37 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
   async function handleSaveEdit() {
     if (!editForm.nome.trim()) { showToast('Nome obbligatorio', 'error'); return }
     setSaving(true)
+
+    const filtroCliente = selected.nome.trim().toUpperCase()
+    const payload = {
+      cliente:       editForm.nome.trim().toUpperCase(),
+      telefono:      editForm.telefono.trim()  || null,
+      email:         editForm.email.trim()     || null,
+      n_persone:     editForm.n_persone        ? parseInt(editForm.n_persone)  : null,
+      note:          editForm.note.trim()      || null,
+      acconto:       editForm.acconto          ? parseFloat(editForm.acconto)       : null,
+      prezzo_totale: editForm.prezzo_totale    ? parseFloat(editForm.prezzo_totale) : null,
+      data_inizio:   editForm.data_inizio      || null,
+      data_fine:     editForm.data_fine        || null,
+    }
+
+    console.log('[handleSaveEdit] filtro cliente:', filtroCliente)
+    console.log('[handleSaveEdit] payload:', payload)
+
     try {
-      const { error } = await supabase.from('occupazioni')
-        .update({
-          cliente:     editForm.nome.trim().toUpperCase(),
-          telefono:    editForm.telefono.trim()  || null,
-          email:       editForm.email.trim()     || null,
-          n_persone:   editForm.n_persone        ? parseInt(editForm.n_persone)  : null,
-          note:        editForm.note.trim()      || null,
-          acconto:       editForm.acconto       ? parseFloat(editForm.acconto)       : null,
-          prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
-          data_inizio: editForm.data_inizio      || null,
-          data_fine:   editForm.data_fine        || null,
-        })
-        .eq('cliente', selected.nome)
+      const { data, error } = await supabase.from('occupazioni')
+        .update(payload)
+        .eq('cliente', filtroCliente)
+        .select()
+
+      console.log('[handleSaveEdit] result:', { data, error })
 
       if (error) throw error
+      if (!data || data.length === 0) {
+        showToast('Nessuna riga aggiornata — cliente non trovato', 'error')
+        setSaving(false)
+        return
+      }
 
       showToast('Cliente aggiornato ✓')
       if (onReload) onReload()
