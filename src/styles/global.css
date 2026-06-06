@@ -76,7 +76,7 @@ input, select, textarea {
 
 @media (max-width: 768px) {
   .page-content {
-    padding: 10px 14px;
+    padding: 4px 14px;
     padding-bottom: 110px !important;
   }
 }
@@ -1125,7 +1125,7 @@ tbody td {
 
 @media (max-width: 768px) {
   .page-content {
-    padding: 16px;
+    padding: 4px 14px;
     padding-bottom: 110px !important;
   }
 

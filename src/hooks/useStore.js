@@ -27,9 +27,11 @@ export function useStore() {
     const pagData = pagRes.error ? [] : (pagRes.data || [])
 
     setDB(prev => {
+      const oggi = new Date().toISOString().split('T')[0]
       const postazioni = prev.postazioni.map(p => {
         const occ = data.find(o => Number(o.numero) === Number(p.numero) && o.tipo === p.tipo)
-        if (!occ) return { ...p, stato: 'libero', cliente: null, lettini: 0, sdraio: 0, regista: 0 }
+        const scaduta = occ?.temporanea && occ?.data_fine && occ.data_fine < oggi
+        if (!occ || scaduta) return { ...p, stato: 'libero', cliente: null, lettini: 0, sdraio: 0, regista: 0 }
         return {
           ...p,
           stato: 'occupato',

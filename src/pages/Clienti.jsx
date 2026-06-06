@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Modal from '../components/Modal'
 import LoadingScreen from '../components/LoadingScreen'
-import { normalizeCliente } from '../lib/data'
+import { normalizeCliente, today } from '../lib/data'
 import { supabase } from '../lib/supabase'
 
 function fmtAttr(val) {
@@ -15,8 +15,8 @@ function fmtDate(d) {
   return `${g}/${m}/${y}`
 }
 
-function fmtAcconto(v) {
-  if (!v && v !== 0) return null
+function fmtEur(v) {
+  if (v == null) return '—'
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v)
 }
 
@@ -25,12 +25,36 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
   const { clienti, postazioni, loading } = db
 
   const [search, setSearch]           = useState('')
+  const [selectedId, setSelectedId]   = useState(null)
   const [modalOpen, setModalOpen]     = useState(false)
-  const [selected, setSelected]       = useState(null)
   const [editMode, setEditMode]       = useState(false)
   const [editForm, setEditForm]       = useState({})
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [saving, setSaving]           = useState(false)
+
+  // Pagamenti
+  const [pagMode, setPagMode]               = useState(false)
+  const [showAddPagForm, setShowAddPagForm] = useState(false)
+  const [newPag, setNewPag]                 = useState({ importo: '', data: today(), note: '' })
+  const [savingPag, setSavingPag]           = useState(false)
+
+  // Prezzo inline edit
+  const [editPrezzo, setEditPrezzo]           = useState('')
+  const [isEditingPrezzo, setIsEditingPrezzo] = useState(false)
+  const [savingPrezzo, setSavingPrezzo]       = useState(false)
+
+  // selected derivato da clienti — si aggiorna automaticamente dopo onReload
+  const selected = useMemo(
+    () => clienti.find(c => c.id === selectedId) ?? null,
+    [clienti, selectedId]
+  )
+
+  // Sync editPrezzo quando il prezzo cambia dopo reload
+  useEffect(() => {
+    if (selected) {
+      setEditPrezzo(selected.prezzo_totale != null ? String(selected.prezzo_totale) : '')
+    }
+  }, [selected?.prezzo_totale])
 
   const lista = useMemo(() => {
     const q = search.toLowerCase()
@@ -57,20 +81,48 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
     }
   }, [postazioniCliente])
 
+  // Tutti i pagamenti di tutte le postazioni del cliente, ordinati per data
+  const allPagamenti = useMemo(() => {
+    return postazioniCliente
+      .flatMap(p => (p.pagamenti || []).map(pg => ({
+        ...pg,
+        posLabel: `${p.tipo === 'palma' ? '🌴' : '☂'} ${p.numero}`,
+      })))
+      .sort((a, b) => (a.data || '').localeCompare(b.data || ''))
+  }, [postazioniCliente])
+
+  const totalePagato = useMemo(
+    () => allPagamenti.reduce((s, pg) => s + Number(pg.importo), 0),
+    [allPagamenti]
+  )
+
+  const saldoResiduo = selected?.prezzo_totale != null
+    ? Math.max(0, selected.prezzo_totale - totalePagato)
+    : null
+
   if (loading) return <LoadingScreen />
 
   function openDettaglio(c) {
-    setSelected(c)
+    setSelectedId(c.id)
     setEditMode(false)
     setDeleteConfirm(false)
+    setPagMode(false)
+    setShowAddPagForm(false)
+    setIsEditingPrezzo(false)
+    setEditPrezzo(c.prezzo_totale != null ? String(c.prezzo_totale) : '')
     setModalOpen(true)
   }
 
   function closeModal() {
     setModalOpen(false)
-    setSelected(null)
+    setSelectedId(null)
     setEditMode(false)
     setDeleteConfirm(false)
+    setPagMode(false)
+    setShowAddPagForm(false)
+    setNewPag({ importo: '', data: today(), note: '' })
+    setIsEditingPrezzo(false)
+    setEditPrezzo('')
   }
 
   function openEdit() {
@@ -87,16 +139,15 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
     })
     setEditMode(true)
     setDeleteConfirm(false)
+    setPagMode(false)
   }
 
   function setEF(k, v) { setEditForm(f => ({ ...f, [k]: v })) }
 
   async function handleSaveEdit() {
     if (!editForm.nome.trim()) { showToast('Nome obbligatorio', 'error'); return }
-
     const ids = postazioniCliente.map(p => p.occ_id).filter(Boolean)
     if (ids.length === 0) { showToast('Postazioni non trovate', 'error'); return }
-
     setSaving(true)
     try {
       const { error } = await supabase.from('occupazioni')
@@ -106,9 +157,7 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
           prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
         })
         .in('id', ids)
-
       if (error) throw error
-
       showToast('Cliente aggiornato ✓')
       if (onReload) onReload()
       closeModal()
@@ -122,15 +171,10 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
   async function handleDelete() {
     const ids = postazioniCliente.map(p => p.occ_id).filter(Boolean)
     if (ids.length === 0) { showToast('Postazioni non trovate', 'error'); return }
-
     setSaving(true)
     try {
-      const { error } = await supabase.from('occupazioni')
-        .delete()
-        .in('id', ids)
-
+      const { error } = await supabase.from('occupazioni').delete().in('id', ids)
       if (error) throw error
-
       showToast(`${selected.nome} eliminato ✓`)
       if (onReload) onReload()
       closeModal()
@@ -145,15 +189,10 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
     setSaving(true)
     try {
       const { error } = await supabase.from('occupazioni')
-        .delete()
-        .eq('tipo', p.tipo)
-        .eq('numero', p.numero)
-
+        .delete().eq('tipo', p.tipo).eq('numero', p.numero)
       if (error) throw error
-
-      showToast(`Postazione liberata ✓`)
+      showToast('Postazione liberata ✓')
       if (onReload) onReload()
-      setSelected(prev => prev ? { ...prev } : null)
       closeModal()
     } catch (err) {
       console.error(err)
@@ -162,11 +201,68 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
     setSaving(false)
   }
 
+  async function handleSavePrezzo() {
+    const ids = postazioniCliente.map(p => p.occ_id).filter(Boolean)
+    if (ids.length === 0) return
+    setSavingPrezzo(true)
+    try {
+      const { error } = await supabase.from('occupazioni')
+        .update({ prezzo_totale: editPrezzo !== '' ? parseFloat(editPrezzo) : null })
+        .in('id', ids)
+      if (error) throw error
+      showToast('Prezzo salvato ✓')
+      if (onReload) onReload()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nel salvataggio', 'error')
+    }
+    setSavingPrezzo(false)
+  }
+
+  async function handleAddPag() {
+    const occ_id = postazioniCliente[0]?.occ_id
+    if (!occ_id || !newPag.importo) return
+    setSavingPag(true)
+    try {
+      const { error } = await supabase.from('pagamenti').insert({
+        occupazione_id: occ_id,
+        importo: parseFloat(newPag.importo),
+        data:    newPag.data || today(),
+        note:    newPag.note || null,
+      })
+      if (error) throw error
+      showToast('Pagamento aggiunto ✓')
+      if (onReload) onReload()
+      setShowAddPagForm(false)
+      setNewPag({ importo: '', data: today(), note: '' })
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nel salvataggio', 'error')
+    }
+    setSavingPag(false)
+  }
+
+  async function handleDeletePag(id) {
+    setSavingPag(true)
+    try {
+      const { error } = await supabase.from('pagamenti').delete().eq('id', id)
+      if (error) throw error
+      showToast('Pagamento eliminato ✓')
+      if (onReload) onReload()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nell\'eliminazione', 'error')
+    }
+    setSavingPag(false)
+  }
+
   const modalTitle = editMode
     ? `✏️ Modifica — ${selected?.nome}`
     : deleteConfirm
       ? '⚠️ Conferma eliminazione'
-      : selected?.nome ?? ''
+      : pagMode
+        ? `💳 Pagamenti — ${selected?.nome}`
+        : selected?.nome ?? ''
 
   return (
     <div className="page-content">
@@ -175,13 +271,9 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Clienti</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
-            {clienti.length} clienti
-          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>{clienti.length} clienti</div>
           {isAdmin && onNavigate && (
-            <button className="btn btn-primary btn-sm" onClick={() => onNavigate('nuovo-cliente')}>
-              ➕ Nuovo
-            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => onNavigate('nuovo-cliente')}>➕ Nuovo</button>
           )}
         </div>
       </div>
@@ -204,11 +296,7 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
               : 'I clienti appaiono automaticamente dopo le prenotazioni'}
           </div>
           {!search && onNavigate && (
-            <button
-              className="btn btn-primary"
-              style={{ marginTop: 20 }}
-              onClick={() => onNavigate('nuovo-cliente')}
-            >
+            <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => onNavigate('nuovo-cliente')}>
               ➕ Registra primo cliente
             </button>
           )}
@@ -252,11 +340,11 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                   {isAdmin && (c.acconto != null || c.prezzo_totale != null) && (
                     <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {c.acconto != null && (
-                        <span className="badge badge-green">Acc. {fmtAcconto(c.acconto)}</span>
+                        <span className="badge badge-green">Acc. {fmtEur(c.acconto)}</span>
                       )}
                       {c.prezzo_totale != null && (
                         <span className="badge" style={{ background: '#fff0f0', color: 'var(--red)', fontWeight: 700 }}>
-                          Saldo {fmtAcconto(Math.max(0, c.prezzo_totale - (c.acconto ?? 0)))}
+                          Saldo {fmtEur(Math.max(0, c.prezzo_totale - (c.acconto ?? 0)))}
                         </span>
                       )}
                     </div>
@@ -311,12 +399,12 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                       {isAdmin && <td style={{ color: 'var(--sky)' }}>{c.telefono || '—'}</td>}
                       {isAdmin && (
                         <td style={{ fontWeight: 600, color: c.acconto ? 'var(--green)' : 'var(--muted)' }}>
-                          {c.acconto != null ? fmtAcconto(c.acconto) : '—'}
+                          {c.acconto != null ? fmtEur(c.acconto) : '—'}
                         </td>
                       )}
                       {isAdmin && (
                         <td style={{ fontWeight: 600, color: c.prezzo_totale != null ? 'var(--red)' : 'var(--muted)' }}>
-                          {c.prezzo_totale != null ? fmtAcconto(Math.max(0, c.prezzo_totale - (c.acconto ?? 0))) : '—'}
+                          {c.prezzo_totale != null ? fmtEur(Math.max(0, c.prezzo_totale - (c.acconto ?? 0))) : '—'}
                         </td>
                       )}
                       <td>
@@ -333,11 +421,13 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
         </>
       )}
 
-      {/* ── MODAL DETTAGLIO / EDIT / DELETE ── */}
+      {/* ── MODAL ── */}
       <Modal open={modalOpen} onClose={closeModal} title={modalTitle} size="modal-sm">
-        {selected && !editMode && !deleteConfirm && (
+
+        {/* ── DETTAGLIO ── */}
+        {selected && !editMode && !deleteConfirm && !pagMode && (
           <div>
-            {/* Azioni — solo admin */}
+            {/* Azioni admin */}
             {isAdmin && (
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <button className="btn btn-outline btn-sm" onClick={openEdit} style={{ flex: 1 }}>✏️ Modifica</button>
@@ -351,10 +441,10 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
               </div>
             )}
 
-            {/* Contatti — solo admin */}
+            {/* Contatti */}
             {isAdmin && (
               <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: selected.n_persone || selected.data_inizio ? 12 : 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Telefono</div>
                     {selected.telefono
@@ -367,45 +457,22 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{selected.email || '—'}</span>
                   </div>
                 </div>
-
-                {(selected.n_persone || selected.data_inizio || selected.acconto != null || selected.prezzo_totale != null) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
+                {(selected.n_persone || selected.data_inizio) && (
+                  <div style={{ display: 'flex', gap: 16, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
                     {selected.n_persone && (
-                      <div style={{ textAlign: 'center' }}>
+                      <div>
                         <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Persone</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--navy)', marginTop: 2 }}>{selected.n_persone}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', marginTop: 2 }}>{selected.n_persone}</div>
                       </div>
                     )}
                     {selected.data_inizio && (
-                      <div style={{ textAlign: 'center' }}>
+                      <div>
                         <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Check-in</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', marginTop: 2 }}>{fmtDate(selected.data_inizio)}</div>
                       </div>
                     )}
-                    {selected.acconto != null && (
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Acconto</div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--green)', marginTop: 2 }}>{fmtAcconto(selected.acconto)}</div>
-                      </div>
-                    )}
                   </div>
                 )}
-
-                {selected.prezzo_totale != null && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff' }}>
-                    {[
-                      { label: 'Totale',  val: selected.prezzo_totale,                                          color: 'var(--navy)' },
-                      { label: 'Acconto', val: selected.acconto ?? 0,                                           color: 'var(--green)' },
-                      { label: 'Saldo',   val: Math.max(0, selected.prezzo_totale - (selected.acconto ?? 0)),   color: 'var(--red)' },
-                    ].map(r => (
-                      <div key={r.label} style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: r.color }}>{fmtAcconto(r.val)}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {selected.note && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8edff', fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
                     📝 {selected.note}
@@ -414,7 +481,55 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
               </div>
             )}
 
-            {/* Riepilogo attrezzatura */}
+            {/* Prezzo totale — inline editable */}
+            {isAdmin && (
+              <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, border: '1px solid #dde8ff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>Prezzo tot.:</span>
+                  {isEditingPrezzo ? (
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>€</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={editPrezzo}
+                        onChange={e => setEditPrezzo(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                        onBlur={() => { setIsEditingPrezzo(false); handleSavePrezzo() }}
+                        autoFocus
+                        style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
+                      />
+                    </div>
+                  ) : (
+                    <strong
+                      onClick={() => setIsEditingPrezzo(true)}
+                      title="Clicca per modificare"
+                      style={{ color: 'var(--navy)', fontSize: 15, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+                    >
+                      {selected.prezzo_totale != null
+                        ? fmtEur(selected.prezzo_totale)
+                        : <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 13 }}>— clicca per impostare</span>
+                      }
+                    </strong>
+                  )}
+                </div>
+                {selected.prezzo_totale != null && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid #dde8ff' }}>
+                    {[
+                      { label: 'Totale', val: selected.prezzo_totale, color: 'var(--navy)' },
+                      { label: 'Pagato', val: totalePagato,           color: 'var(--green)' },
+                      { label: 'Saldo',  val: saldoResiduo,           color: 'var(--red)' },
+                    ].map(r => (
+                      <div key={r.label} style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: r.color }}>{fmtEur(r.val)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Attrezzatura */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
               {[
                 { label: 'Lettini', val: totAttr.lettini, icon: '🛏' },
@@ -465,6 +580,128 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                 )
               })}
             </div>
+
+            {/* Bottone pagamenti */}
+            {isAdmin && (
+              <button
+                className="btn btn-outline"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                onClick={() => setPagMode(true)}
+              >
+                💳 Gestisci pagamenti
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── PAGAMENTI MODE ── */}
+        {selected && pagMode && (
+          <div>
+            {/* Lista pagamenti */}
+            {allPagamenti.length === 0 && !showAddPagForm && (
+              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>Nessun pagamento registrato</p>
+            )}
+            {allPagamenti.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                {allPagamenti.map(pg => (
+                  <div key={pg.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f7f9ff', borderRadius: 8, marginBottom: 6, border: '1px solid #e8edf8' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 14 }}>{fmtEur(Number(pg.importo))}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {fmtDate(pg.data)}
+                        {pg.posLabel ? ` · ${pg.posLabel}` : ''}
+                        {pg.note ? ` · ${pg.note}` : ''}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeletePag(pg.id)}
+                      disabled={savingPag}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 16, padding: '4px 6px', lineHeight: 1 }}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Form aggiunta */}
+            {showAddPagForm ? (
+              <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px', border: '1px solid #dde8ff', marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', marginBottom: 8 }}>Nuovo pagamento</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: 11 }}>Importo (€)</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none', fontSize: 13 }}>€</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={newPag.importo}
+                        onChange={e => setNewPag(f => ({ ...f, importo: e.target.value }))}
+                        placeholder="0.00"
+                        style={{ paddingLeft: 22, fontSize: 14 }}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontSize: 11 }}>Data</label>
+                    <input
+                      type="date"
+                      value={newPag.data}
+                      onChange={e => setNewPag(f => ({ ...f, data: e.target.value }))}
+                      style={{ fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11 }}>Note (opzionale)</label>
+                  <input
+                    type="text"
+                    value={newPag.note}
+                    onChange={e => setNewPag(f => ({ ...f, note: e.target.value }))}
+                    placeholder="es. acconto, saldo finale..."
+                    style={{ fontSize: 13 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}
+                    onClick={() => { setShowAddPagForm(false); setNewPag({ importo: '', data: today(), note: '' }) }}>
+                    Annulla
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 2, justifyContent: 'center', fontSize: 13, opacity: savingPag || !newPag.importo ? .6 : 1 }}
+                    disabled={savingPag || !newPag.importo}
+                    onClick={handleAddPag}
+                  >
+                    {savingPag ? '⏳...' : '✅ Aggiungi'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}
+                onClick={() => setShowAddPagForm(true)}>
+                ➕ Aggiungi pagamento
+              </button>
+            )}
+
+            {/* Riepilogo */}
+            <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 14px', border: '1px solid #dde8ff', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 12 }}>
+              {[
+                { label: 'Totale', val: selected.prezzo_totale, color: 'var(--navy)' },
+                { label: 'Pagato', val: totalePagato,           color: 'var(--green)' },
+                { label: 'Saldo',  val: saldoResiduo,           color: 'var(--red)' },
+              ].map(r => (
+                <div key={r.label} style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{r.label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: r.color }}>{r.val != null ? fmtEur(r.val) : '—'}</div>
+                </div>
+              ))}
+            </div>
+
+            <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setPagMode(false)}>
+              ← Torna al dettaglio
+            </button>
           </div>
         )}
 
@@ -474,76 +711,42 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
                 <label>Nome completo</label>
-                <input
-                  value={editForm.nome}
-                  onChange={e => setEF('nome', e.target.value)}
-                  style={{ fontSize: 15, textTransform: 'uppercase' }}
-                />
+                <input value={editForm.nome} onChange={e => setEF('nome', e.target.value)} style={{ fontSize: 15, textTransform: 'uppercase' }} />
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label>Telefono</label>
-                  <input
-                    type="tel"
-                    value={editForm.telefono}
-                    onChange={e => setEF('telefono', e.target.value)}
-                    placeholder="+39 3xx..."
-                  />
+                  <input type="tel" value={editForm.telefono} onChange={e => setEF('telefono', e.target.value)} placeholder="+39 3xx..." />
                 </div>
                 <div className="form-group">
                   <label>Email</label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={e => setEF('email', e.target.value)}
-                  />
+                  <input type="email" value={editForm.email} onChange={e => setEF('email', e.target.value)} />
                 </div>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label>N. persone</label>
-                  <input
-                    type="number"
-                    value={editForm.n_persone}
-                    onChange={e => setEF('n_persone', e.target.value)}
-                    min="1" max="20"
-                  />
+                  <input type="number" value={editForm.n_persone} onChange={e => setEF('n_persone', e.target.value)} min="1" max="20" />
                 </div>
                 <div className="form-group">
                   <label>Prezzo totale (€)</label>
-                  <input
-                    type="number"
-                    value={editForm.prezzo_totale}
-                    onChange={e => setEF('prezzo_totale', e.target.value)}
-                    placeholder="0.00"
-                    min="0" step="0.01"
-                  />
+                  <input type="number" value={editForm.prezzo_totale} onChange={e => setEF('prezzo_totale', e.target.value)} placeholder="0.00" min="0" step="0.01" />
                 </div>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label>Acconto (€)</label>
-                  <input
-                    type="number"
-                    value={editForm.acconto}
-                    onChange={e => setEF('acconto', e.target.value)}
-                    placeholder="0.00"
-                    min="0" step="0.01"
-                  />
+                  <input type="number" value={editForm.acconto} onChange={e => setEF('acconto', e.target.value)} placeholder="0.00" min="0" step="0.01" />
                 </div>
                 <div className="form-group">
                   <label>Saldo residuo</label>
                   <div style={{ padding: '10px 12px', background: '#f7f9ff', borderRadius: 8, fontSize: 15, fontWeight: 700, color: 'var(--navy)', border: '1.5px solid #e0e6f8' }}>
                     {editForm.prezzo_totale
-                      ? fmtAcconto(Math.max(0, (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)))
+                      ? fmtEur(Math.max(0, (parseFloat(editForm.prezzo_totale) || 0) - (parseFloat(editForm.acconto) || 0)))
                       : '—'}
                   </div>
                 </div>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label>Check-in</label>
@@ -554,25 +757,13 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                   <input type="date" value={editForm.data_fine} onChange={e => setEF('data_fine', e.target.value)} />
                 </div>
               </div>
-
               <div className="form-group">
                 <label>Note</label>
-                <textarea
-                  value={editForm.note}
-                  onChange={e => setEF('note', e.target.value)}
-                  rows={2}
-                  style={{ fontSize: 14 }}
-                />
+                <textarea value={editForm.note} onChange={e => setEF('note', e.target.value)} rows={2} style={{ fontSize: 14 }} />
               </div>
-
               <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
                 <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditMode(false)}>Annulla</button>
-                <button
-                  className="btn btn-primary"
-                  style={{ flex: 2, opacity: saving ? .7 : 1 }}
-                  onClick={handleSaveEdit}
-                  disabled={saving}
-                >
+                <button className="btn btn-primary" style={{ flex: 2, opacity: saving ? .7 : 1 }} onClick={handleSaveEdit} disabled={saving}>
                   {saving ? '⏳...' : '✅ Salva modifiche'}
                 </button>
               </div>
@@ -593,17 +784,13 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setDeleteConfirm(false)}>Annulla</button>
-              <button
-                className="btn btn-red"
-                style={{ flex: 1, opacity: saving ? .7 : 1 }}
-                onClick={handleDelete}
-                disabled={saving}
-              >
+              <button className="btn btn-red" style={{ flex: 1, opacity: saving ? .7 : 1 }} onClick={handleDelete} disabled={saving}>
                 {saving ? '⏳...' : '🗑 Conferma'}
               </button>
             </div>
           </div>
         )}
+
       </Modal>
     </div>
   )

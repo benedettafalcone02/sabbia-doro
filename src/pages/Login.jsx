@@ -2,22 +2,21 @@ import { useState } from 'react'
 import styles from './Login.module.css'
 
 const CREDENZIALI = [
-  { email: 'admin@sabbiadoro.it',      pwd: 'demo1234',    role: 'admin'       },
-  { email: 'sabbia2026', pwd: '1234', role: 'spiaggista' },
+  { email: 'admin@sabbiadoro.it', pwd: 'demo1234',    role: 'admin'       },
+  { email: 'sabbia2026',          pwd: '1234',         role: 'spiaggista'  },
 ]
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('')
   const [pwd, setPwd]     = useState('')
   const [error, setError] = useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
-    const match = CREDENZIALI.find(c => c.email === email && c.pwd === pwd)
+    const match = CREDENZIALI.find(c => c.pwd === pwd)
     if (match) {
       onLogin(match.role)
     } else {
-      setError('Credenziali errate.')
+      setError('Password errata.')
     }
   }
 
@@ -28,26 +27,17 @@ export default function Login({ onLogin }) {
           <img src="/logosabbiadoro.png" alt="Sabbia d'Oro" className={styles.logoImg} />
         </div>
 
-        <p className={styles.sub}>Gestionale Stabilimento · Pescara · Conc. N°10</p>
+        <p className={styles.sub}>Gestionale Stabilimento · Pescara · Conc. N°30</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className="form-group">
-            <label>Email</label>
-            <input
-              type="text"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError('') }}
-              placeholder="nome utente"
-              required
-            />
-          </div>
-          <div className="form-group" style={{ marginTop: 12 }}>
             <label>Password</label>
             <input
               type="password"
               value={pwd}
               onChange={e => { setPwd(e.target.value); setError('') }}
               placeholder="••••••••"
+              autoFocus
               required
             />
           </div>

@@ -32,10 +32,14 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
   const [saving, setSaving]             = useState(false)
   const [editPrezzo, setEditPrezzo]     = useState('')
   const [savingPrezzo, setSavingPrezzo] = useState(false)
+  const [isEditingPrezzo, setIsEditingPrezzo] = useState(false)
 
   useEffect(() => {
     if (selPost) {
-      setEditPrezzo(selPost.prezzo_totale != null ? String(selPost.prezzo_totale) : '')
+      const tot = selPost.prezzo_totale
+      const ref = selPost.tipo === 'palma' ? (selPost.prezzo_stagionale ?? null) : null
+      setEditPrezzo(tot != null ? String(tot) : ref != null ? String(ref) : '')
+      setIsEditingPrezzo(false)
     }
   }, [selected])
 
@@ -44,6 +48,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
     setConfirmLibera(false)
     setPagMode(false)
     setShowAddForm(false)
+    setIsEditingPrezzo(false)
     setNewPag({ importo: '', data: today(), note: '' })
   }
 
@@ -246,16 +251,74 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
       >
         {selPost && (
           <div>
-            {/* Prezzo di riferimento — solo admin */}
+            {/* Prezzo — solo admin, editabile inline */}
             {isAdmin && (
               <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13 }}>
-                {selPost.tipo === 'palma'
-                  ? <div>Stagionale: <strong style={{ color: 'var(--navy)', fontSize: 15 }}>{fmtEur(selPost.prezzo_stagionale)}</strong></div>
-                  : <div style={{ display: 'flex', gap: 14 }}>
+                {selPost.tipo === 'palma' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Stagionale:</span>
+                    {isEditingPrezzo ? (
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>€</span>
+                        <input
+                          type="number" min="0" step="0.01"
+                          value={editPrezzo}
+                          onChange={e => setEditPrezzo(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                          onBlur={() => { setIsEditingPrezzo(false); handleSavePrezzo() }}
+                          autoFocus
+                          style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
+                        />
+                      </div>
+                    ) : (
+                      <strong
+                        onClick={() => setIsEditingPrezzo(true)}
+                        title="Clicca per modificare il prezzo totale"
+                        style={{ color: 'var(--navy)', fontSize: 15, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+                      >
+                        {fmtEur(selPost.prezzo_totale ?? selPost.prezzo_stagionale)}
+                      </strong>
+                    )}
+                    {!isEditingPrezzo && selPost.prezzo_totale != null && selPost.prezzo_totale !== selPost.prezzo_stagionale && (
+                      <span style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'line-through' }}>{fmtEur(selPost.prezzo_stagionale)}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', gap: 14, marginBottom: 8 }}>
                       <div>2L: <strong>{fmtEur(selPost.prezzo_2lettini)}</strong></div>
                       <div>L+R: <strong>{fmtEur(selPost.prezzo_lettino_regista)}</strong></div>
                     </div>
-                }
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #e8edf8', paddingTop: 8 }}>
+                      <span style={{ color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Prezzo tot.:</span>
+                      {isEditingPrezzo ? (
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>€</span>
+                          <input
+                            type="number" min="0" step="0.01"
+                            value={editPrezzo}
+                            onChange={e => setEditPrezzo(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                            onBlur={() => { setIsEditingPrezzo(false); handleSavePrezzo() }}
+                            autoFocus
+                            style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
+                          />
+                        </div>
+                      ) : (
+                        <strong
+                          onClick={() => setIsEditingPrezzo(true)}
+                          title="Clicca per modificare il prezzo totale"
+                          style={{ color: 'var(--navy)', fontSize: 15, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+                        >
+                          {selPost.prezzo_totale != null
+                            ? fmtEur(selPost.prezzo_totale)
+                            : <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 13 }}>— clicca per impostare</span>
+                          }
+                        </strong>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -309,31 +372,6 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
                     </div>
                   ))}
                 </div>
-
-                {/* Prezzo totale modificabile — solo admin */}
-                {isAdmin && (
-                  <div style={{ borderTop: '1px solid #dde8ff', marginTop: 10, paddingTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>Prezzo tot.</span>
-                    <div style={{ position: 'relative', flex: 1 }}>
-                      <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none', fontSize: 13 }}>€</span>
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={editPrezzo}
-                        onChange={e => setEditPrezzo(e.target.value)}
-                        placeholder="0.00"
-                        style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
-                      />
-                    </div>
-                    <button
-                      className="btn btn-primary"
-                      style={{ whiteSpace: 'nowrap', fontSize: 12, padding: '6px 12px', opacity: savingPrezzo ? 0.6 : 1 }}
-                      disabled={savingPrezzo}
-                      onClick={handleSavePrezzo}
-                    >
-                      {savingPrezzo ? '...' : 'Salva'}
-                    </button>
-                  </div>
-                )}
 
                 {/* Riepilogo pagamenti — solo admin */}
                 {isAdmin && (
