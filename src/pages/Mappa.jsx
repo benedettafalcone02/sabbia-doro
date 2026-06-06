@@ -20,7 +20,7 @@ function fmtDate(d) {
   return `${g}/${m}/${y}`
 }
 
-export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
+export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, onReload, role }) {
   const isAdmin = role === 'admin'
   const { postazioni, loading } = db
   const [filtro, setFiltro]             = useState('tutti')
@@ -537,7 +537,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
                 <button
                   className="btn btn-yellow btn-lg"
                   style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => { closeModal(); onNavigate && onNavigate('prenota') }}
+                  onClick={() => { closeModal(); onNavigatePrenota ? onNavigatePrenota(selPost.id) : onNavigate && onNavigate('prenota') }}
                 >
                   ➕ Prenota questa postazione
                 </button>

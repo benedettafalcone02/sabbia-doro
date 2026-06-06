@@ -17,10 +17,21 @@ import Admin         from './pages/Admin'
 import Toast         from './components/Toast'
 
 export default function App() {
-  const [role, setRole] = useState(null)
-  const [page, setPage] = useState('dashboard')
-  const { db, reload }          = useStore()
-  const { toast, showToast }    = useToast()
+  const [role, setRole]           = useState(null)
+  const [page, setPage]           = useState('dashboard')
+  const [prenotaPostId, setPrenotaPostId] = useState(null)
+  const { db, reload }            = useStore()
+  const { toast, showToast }      = useToast()
+
+  function navigatePrenota(postId) {
+    setPrenotaPostId(postId)
+    setPage('prenota')
+  }
+
+  function navigate(p) {
+    if (p !== 'prenota') setPrenotaPostId(null)
+    setPage(p)
+  }
 
   // Guards after all hooks (Rules of Hooks requires unconditional hook calls)
   if (!isConfigured) return (
@@ -42,13 +53,13 @@ export default function App() {
 
   return (
     <>
-      <Navbar activePage={page} onNavigate={setPage} onLogout={() => { setRole(null); setPage('dashboard') }} role={role} />
+      <Navbar activePage={page} onNavigate={navigate} onLogout={() => { setRole(null); setPage('dashboard') }} role={role} />
 
-      {isAdmin && page === 'dashboard'     && <Dashboard     db={db} onNavigate={setPage} />}
-      {page === 'mappa'                    && <Mappa          db={db} onNavigate={setPage} showToast={showToast} onReload={reload} role={role} />}
-      {isAdmin && page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} />}
-      {page === 'clienti'                  && <Clienti        db={db} onNavigate={isAdmin ? setPage : undefined} showToast={showToast} onReload={reload} role={role} />}
-      {isAdmin && page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={setPage} />}
+      {isAdmin && page === 'dashboard'     && <Dashboard     db={db} onNavigate={navigate} />}
+      {page === 'mappa'                    && <Mappa          db={db} onNavigate={navigate} onNavigatePrenota={navigatePrenota} showToast={showToast} onReload={reload} role={role} />}
+      {isAdmin && page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} initialPostId={prenotaPostId} />}
+      {page === 'clienti'                  && <Clienti        db={db} onNavigate={isAdmin ? navigate : undefined} showToast={showToast} onReload={reload} role={role} />}
+      {isAdmin && page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={navigate} />}
       {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} />}
       {isAdmin && page === 'admin'         && <Admin          onReload={reload} />}
 

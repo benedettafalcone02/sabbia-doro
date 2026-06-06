@@ -3,23 +3,31 @@ import { supabase } from '../lib/supabase'
 import { today } from '../lib/data'
 import LoadingScreen from '../components/LoadingScreen'
 
-export default function Prenota({ db, showToast, onReload }) {
+export default function Prenota({ db, showToast, onReload, initialPostId }) {
   const { postazioni, clienti, loading } = db
 
-  const [form, setForm] = useState({
-    postazione_id: '',
-    cliente_nome: '',
-    tipo: 'stagionale',
-    dotazione: '2lettini',
-    temporanea: false,
-    data_inizio: today(),
-    data_fine: '',
-    note: '',
-    lettini: 0,
-    sdraio: 0,
-    regista: 0,
-    prezzo_totale: '',
-    acconto: '',
+  const [form, setForm] = useState(() => {
+    const base = {
+      postazione_id: '',
+      cliente_nome: '',
+      tipo: 'stagionale',
+      dotazione: '2lettini',
+      temporanea: false,
+      data_inizio: today(),
+      data_fine: '',
+      note: '',
+      lettini: 0,
+      sdraio: 0,
+      regista: 0,
+      prezzo_totale: '',
+      acconto: '',
+    }
+    if (!initialPostId) return base
+    const pos = postazioni.find(p => p.id === initialPostId)
+    const defaults = pos?.tipo === 'palma'
+      ? { dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }
+      : { dotazione: '2lettini', lettini: 2, sdraio: 0, regista: 0 }
+    return { ...base, postazione_id: initialPostId, ...defaults }
   })
   const [saving, setSaving] = useState(false)
   const [cercaCliente, setCercaCliente] = useState('')
