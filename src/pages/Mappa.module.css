@@ -67,6 +67,11 @@
   font-weight: 500;
 }
 
+/* ── CONTENUTO MAPPA (wrapper per la passerella continua) ── */
+.mappaContent {
+  position: relative;
+}
+
 /* ── SEZIONE ── */
 .sezione { margin-bottom: 20px; }
 .sezLabel {
@@ -80,6 +85,10 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+  /* Copre la passerella nella zona etichetta */
+  background: #fff;
+  position: relative;
+  z-index: 2;
 }
 .sezLabel::after {
   content: '';
@@ -125,18 +134,23 @@
   user-select: none;
   position: relative;
   border: 2px solid transparent;
+  z-index: 1;
 }
 .postazione:hover {
   transform: scale(1.2);
-  z-index: 2;
+  z-index: 3;
   box-shadow: 0 2px 8px rgba(0,0,0,.25);
 }
 .postazione:active { transform: scale(0.95); }
 
-/* Dimensioni */
+/*
+  Dimensioni calcolate per allineare la passerella:
+  7 × palma + 7 × gap  =  8 × ombr + 8 × gap
+  7 × 36   + 7 × 4    =  8 × 31  + 8 × 4   = 280 px → passerella a x = 312 px
+*/
 .palma  { width: 36px; height: 36px; font-size: 10px; }
-.ombrA  { width: 28px; height: 28px; font-size: 8px; }
-.ombrB  { width: 22px; height: 22px; font-size: 7px; }
+.ombrA  { width: 31px; height: 31px; font-size: 9px; }
+.ombrB  { width: 31px; height: 31px; font-size: 8px; }
 
 /* Stati */
 .libero     { background: #27ae60; }
@@ -146,14 +160,24 @@
 .hidden     { opacity: .12; cursor: default; pointer-events: none; }
 
 /* ── PASSERELLA ── */
-.righeWrap {
-  position: relative;
+
+/* Spacer invisibile nel flusso flex: occupa lo spazio e separa i cerchi */
+.passerella {
+  width: 10px;
+  min-width: 10px;
+  flex-shrink: 0;
+  align-self: stretch;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.passerellaBar {
+/* Barra visiva unica: copre l'intera altezza di tutte le sezioni */
+.passerellaLine {
   position: absolute;
   top: 0;
   bottom: 0;
+  /* 28px (rowLabel) + 4px (gap) + 280px (7 × (36+4) = 8 × (31+4)) */
+  left: 312px;
   width: 10px;
   background: repeating-linear-gradient(
     0deg,
@@ -162,29 +186,24 @@
     #c4b080 3px,
     #c4b080 6px
   );
-  border-radius: 3px;
+  border-radius: 4px;
   pointer-events: none;
-  z-index: 2;
   opacity: .9;
-}
-
-.passerellaBarPalme { left: 312px; }
-.passerellaBarOmbrA { left: 288px; }
-.passerellaBarOmbrB { left: 240px; }
-
-@media (max-width: 768px) {
-  .passerellaBarPalme { left: 284px; }
-  .passerellaBarOmbrA { left: 264px; }
-  .passerellaBarOmbrB { left: 224px; }
+  z-index: 0;
 }
 
 /* ── MOBILE ── */
 @media (max-width: 768px) {
   .scrollHint { display: block; }
 
+  /*
+    Mobile: 7 × 32 + 7 × 4  =  8 × 27.5 + 8 × 4  = 252 px → passerella a x = 284 px
+  */
   .palma  { width: 32px; height: 32px; font-size: 9px; }
-  .ombrA  { width: 25px; height: 25px; font-size: 8px; }
-  .ombrB  { width: 20px; height: 20px; font-size: 7px; }
+  .ombrA  { width: 27.5px; height: 27.5px; font-size: 8px; }
+  .ombrB  { width: 27.5px; height: 27.5px; font-size: 7px; }
+
+  .passerellaLine { left: 284px; }
 
   .mappaWrap { padding: 12px 10px; }
   .controls { gap: 10px; }

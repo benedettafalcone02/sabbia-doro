@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, Fragment } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
 import LoadingScreen from '../components/LoadingScreen'
@@ -148,14 +148,16 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
       <div key={`${settore}-${fila}`} className={styles.row}>
         <div className={styles.rowLabel}>F{fila}</div>
         <div className={styles.rowItems}>
-          {items.map(p => (
-            <div
-              key={p.id}
-              className={`${styles.postazione} ${styles[cls]} ${p.temporanea ? styles.temporanea : styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
-              onClick={() => isVisible(p) && setSelected(p.id)}
-            >
-              {p.numero}
-            </div>
+          {items.map((p, idx) => (
+            <Fragment key={p.id}>
+              {idx === 8 && <div className={styles.passerella} />}
+              <div
+                className={`${styles.postazione} ${styles[cls]} ${p.temporanea ? styles.temporanea : styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
+                onClick={() => isVisible(p) && setSelected(p.id)}
+              >
+                {p.numero}
+              </div>
+            </Fragment>
           ))}
         </div>
       </div>
@@ -198,44 +200,42 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
       <div className={styles.mappaWrap}>
         <div className={styles.scrollHint}>← scorri orizzontalmente →</div>
 
-        <div className={styles.sezione}>
-          <div className={styles.sezLabel}>🌴 Palme (84)</div>
-          <div className={styles.righeWrap}>
-            <div className={`${styles.passerellaBar} ${styles.passerellaBarPalme}`} />
+        <div className={styles.mappaContent}>
+          {/* Barra unica continua che attraversa tutte le sezioni */}
+          <div className={styles.passerellaLine} />
+
+          <div className={styles.sezione}>
+            <div className={styles.sezLabel}>🌴 Palme (84)</div>
             {[1,2,3,4,5,6].map(fila => {
               const items = postazioni.filter(p => p.tipo === 'palma' && p.fila === fila).sort((a,b) => a.col - b.col)
               return (
                 <div key={fila} className={styles.row}>
                   <div className={styles.rowLabel}>F{fila}</div>
                   <div className={styles.rowItems}>
-                    {items.map(p => (
-                      <div
-                        key={p.id}
-                        className={`${styles.postazione} ${styles.palma} ${p.temporanea ? styles.temporanea : styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
-                        onClick={() => isVisible(p) && setSelected(p.id)}
-                      >
-                        {p.numero}
-                      </div>
+                    {items.map((p, idx) => (
+                      <Fragment key={p.id}>
+                        {idx === 7 && <div className={styles.passerella} />}
+                        <div
+                          className={`${styles.postazione} ${styles.palma} ${p.temporanea ? styles.temporanea : styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
+                          onClick={() => isVisible(p) && setSelected(p.id)}
+                        >
+                          {p.numero}
+                        </div>
+                      </Fragment>
                     ))}
                   </div>
                 </div>
               )
             })}
           </div>
-        </div>
 
-        <div className={styles.sezione}>
-          <div className={styles.sezLabel}>☂ Settore A</div>
-          <div className={styles.righeWrap}>
-            <div className={`${styles.passerellaBar} ${styles.passerellaBarOmbrA}`} />
+          <div className={styles.sezione}>
+            <div className={styles.sezLabel}>☂ Settore A</div>
             {[1,2,3,4,5,6].map(f => renderRigaOmbrelloni(f, 'A', 'ombrA'))}
           </div>
-        </div>
 
-        <div className={styles.sezione}>
-          <div className={styles.sezLabel}>☂ Settore B</div>
-          <div className={styles.righeWrap}>
-            <div className={`${styles.passerellaBar} ${styles.passerellaBarOmbrB}`} />
+          <div className={styles.sezione}>
+            <div className={styles.sezLabel}>☂ Settore B</div>
             {[7,8,9,10,11,12,13].map(f => renderRigaOmbrelloni(f, 'B', 'ombrB'))}
           </div>
         </div>
