@@ -11,6 +11,7 @@ export default function Prenota({ db, showToast, onReload }) {
     cliente_nome: '',
     tipo: 'stagionale',
     dotazione: '2lettini',
+    temporanea: false,
     data_inizio: today(),
     data_fine: '',
     note: '',
@@ -54,6 +55,9 @@ export default function Prenota({ db, showToast, onReload }) {
   async function handleSalva() {
     if (!form.postazione_id) { showToast('Seleziona una postazione', 'error'); return }
     if (!form.cliente_nome.trim()) { showToast('Inserisci il nome del cliente', 'error'); return }
+    if (form.temporanea && (!form.data_inizio || !form.data_fine)) {
+      showToast('Inserisci data inizio e data fine', 'error'); return
+    }
 
     setSaving(true)
     try {
@@ -79,6 +83,9 @@ export default function Prenota({ db, showToast, onReload }) {
           regista: form.regista,
           prezzo_totale: form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
           acconto:       form.acconto       ? parseFloat(form.acconto)       : null,
+          temporanea:    form.temporanea,
+          data_inizio:   form.temporanea ? form.data_inizio : null,
+          data_fine:     form.temporanea ? form.data_fine   : null,
         })
 
       if (error) throw error
@@ -88,7 +95,7 @@ export default function Prenota({ db, showToast, onReload }) {
 
       setForm({
         postazione_id: '', cliente_nome: '', tipo: 'stagionale',
-        dotazione: '2lettini', data_inizio: today(), data_fine: '', note: '',
+        dotazione: '2lettini', temporanea: false, data_inizio: today(), data_fine: '', note: '',
         lettini: 2, sdraio: 0, regista: 0, prezzo_totale: '', acconto: '',
       })
       setCercaCliente('')
@@ -266,6 +273,47 @@ export default function Prenota({ db, showToast, onReload }) {
             <strong style={{ color: 'var(--navy)', fontSize: 15 }}>
               € {Math.max(0, (parseFloat(form.prezzo_totale) || 0) - (parseFloat(form.acconto) || 0)).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
             </strong>
+          </div>
+        )}
+
+        {/* PRENOTAZIONE TEMPORANEA */}
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fffde7', borderRadius: 10, border: '1.5px solid #ffe082', marginBottom: 16, cursor: 'pointer' }}
+          onClick={() => set('temporanea', !form.temporanea)}
+        >
+          <input
+            type="checkbox"
+            checked={form.temporanea}
+            onChange={e => set('temporanea', e.target.checked)}
+            onClick={e => e.stopPropagation()}
+            style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#f0c030', flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>⏳ Prenotazione temporanea</div>
+            <div style={{ fontSize: 12, color: '#b8860b', marginTop: 2 }}>Apparirà in giallo sulla mappa</div>
+          </div>
+        </div>
+
+        {form.temporanea && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Data inizio *</label>
+              <input
+                type="date"
+                value={form.data_inizio}
+                onChange={e => set('data_inizio', e.target.value)}
+                style={{ fontSize: 14 }}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Data fine *</label>
+              <input
+                type="date"
+                value={form.data_fine}
+                onChange={e => set('data_fine', e.target.value)}
+                style={{ fontSize: 14 }}
+              />
+            </div>
           </div>
         )}
 

@@ -24,7 +24,7 @@ export function useStore() {
       return
     }
     const data    = occRes.data
-    const pagData = pagRes.data || []
+    const pagData = pagRes.error ? [] : (pagRes.data || [])
 
     setDB(prev => {
       const postazioni = prev.postazioni.map(p => {
@@ -46,6 +46,7 @@ export function useStore() {
           note:       occ.note       || null,
           acconto:       occ.acconto       != null ? Number(occ.acconto)       : null,
           prezzo_totale: occ.prezzo_totale != null ? Number(occ.prezzo_totale) : null,
+          temporanea:   occ.temporanea   || false,
           pagamenti:  pagData.filter(pg => pg.occupazione_id === occ.id),
         }
       })

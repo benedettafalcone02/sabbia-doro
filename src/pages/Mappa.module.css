@@ -139,10 +139,11 @@
 .ombrB  { width: 22px; height: 22px; font-size: 7px; }
 
 /* Stati */
-.libero   { background: #27ae60; }
-.occupato { background: var(--red); }
-.acconto  { background: var(--orange); }
-.hidden   { opacity: .12; cursor: default; pointer-events: none; }
+.libero     { background: #27ae60; }
+.occupato   { background: var(--red); }
+.temporanea { background: var(--yellow); color: var(--navy); }
+.acconto    { background: var(--orange); }
+.hidden     { opacity: .12; cursor: default; pointer-events: none; }
 
 /* ── PASSERELLA ── */
 .passerella {

@@ -1,4 +1,4 @@
-import { useState, useCallback, Fragment } from 'react'
+import { useState, useCallback, useEffect, Fragment } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
 import LoadingScreen from '../components/LoadingScreen'
@@ -6,11 +6,12 @@ import { fmtEur, today } from '../lib/data'
 import styles from './Mappa.module.css'
 
 const FILTRI = [
-  { id: 'tutti',      label: 'Tutti' },
-  { id: 'palme',      label: '🌴 Palme' },
-  { id: 'ombrelloni', label: '☂ Ombrelloni' },
-  { id: 'liberi',     label: '🟢 Liberi' },
-  { id: 'occupati',   label: '🔴 Occupati' },
+  { id: 'tutti',       label: 'Tutti' },
+  { id: 'palme',       label: '🌴 Palme' },
+  { id: 'ombrelloni',  label: '☂ Ombrelloni' },
+  { id: 'liberi',      label: '🟢 Liberi' },
+  { id: 'occupati',    label: '🔴 Occupati' },
+  { id: 'temporanee',  label: '🟡 Temporanee' },
 ]
 
 function fmtDate(d) {
@@ -29,6 +30,14 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
   const [showAddForm, setShowAddForm]   = useState(false)
   const [newPag, setNewPag]             = useState({ importo: '', data: today(), note: '' })
   const [saving, setSaving]             = useState(false)
+  const [editPrezzo, setEditPrezzo]     = useState('')
+  const [savingPrezzo, setSavingPrezzo] = useState(false)
+
+  useEffect(() => {
+    if (selPost) {
+      setEditPrezzo(selPost.prezzo_totale != null ? String(selPost.prezzo_totale) : '')
+    }
+  }, [selected])
 
   function closeModal() {
     setSelected(null)
@@ -75,6 +84,25 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
     setSaving(false)
   }
 
+  async function handleSavePrezzo() {
+    const post = postazioni.find(p => p.id === selected)
+    if (!post) return
+    setSavingPrezzo(true)
+    try {
+      const { error } = await supabase
+        .from('occupazioni')
+        .update({ prezzo_totale: editPrezzo !== '' ? parseFloat(editPrezzo) : null })
+        .eq('id', post.occ_id)
+      if (error) throw error
+      showToast('Prezzo salvato ✓')
+      if (onReload) onReload()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nel salvataggio', 'error')
+    }
+    setSavingPrezzo(false)
+  }
+
   async function handleLibera() {
     const post = postazioni.find(p => p.id === selected)
     if (!post) return
@@ -97,10 +125,11 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
   }
 
   const isVisible = useCallback((p) => {
-    if (filtro === 'palme')      return p.tipo === 'palma'
-    if (filtro === 'ombrelloni') return p.tipo === 'ombrellone'
-    if (filtro === 'liberi')     return p.stato === 'libero'
-    if (filtro === 'occupati')   return p.stato !== 'libero'
+    if (filtro === 'palme')       return p.tipo === 'palma'
+    if (filtro === 'ombrelloni')  return p.tipo === 'ombrellone'
+    if (filtro === 'liberi')      return p.stato === 'libero'
+    if (filtro === 'occupati')    return p.stato !== 'libero'
+    if (filtro === 'temporanee')  return p.temporanea === true
     return true
   }, [filtro])
 
@@ -118,7 +147,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
             <Fragment key={p.id}>
               {idx === 8 && <div className={styles.passerella} />}
               <div
-                className={`${styles.postazione} ${styles[cls]} ${styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
+                className={`${styles.postazione} ${styles[cls]} ${p.temporanea ? styles.temporanea : styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
                 onClick={() => isVisible(p) && setSelected(p.id)}
               >
                 {p.numero}
@@ -148,6 +177,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
         <div className={styles.legenda}>
           <div className={styles.legItem}><div className={styles.dot} style={{ background: '#27ae60' }} />Libero</div>
           <div className={styles.legItem}><div className={styles.dot} style={{ background: 'var(--red)' }} />Occupato</div>
+          <div className={styles.legItem}><div className={styles.dot} style={{ background: 'var(--yellow)' }} />Temporanea</div>
         </div>
         <div className={styles.filtri}>
           {FILTRI.map(f => (
@@ -176,7 +206,7 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
                   {items.map(p => (
                     <div
                       key={p.id}
-                      className={`${styles.postazione} ${styles.palma} ${styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
+                      className={`${styles.postazione} ${styles.palma} ${p.temporanea ? styles.temporanea : styles[p.stato]} ${!isVisible(p) ? styles.hidden : ''}`}
                       onClick={() => isVisible(p) && setSelected(p.id)}
                     >
                       {p.numero}
@@ -230,10 +260,33 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <span className={`badge ${selPost.stato === 'libero' ? 'badge-green' : 'badge-red'}`}>
-                {selPost.stato === 'libero' ? '🟢 Libero' : '🔴 Occupato'}
+              <span className={`badge ${selPost.stato === 'libero' ? 'badge-green' : selPost.temporanea ? 'badge-yellow' : 'badge-red'}`}>
+                {selPost.stato === 'libero' ? '🟢 Libero' : selPost.temporanea ? '🟡 Temporanea' : '🔴 Occupato'}
               </span>
             </div>
+
+            {/* Banner date — solo temporanee */}
+            {selPost.temporanea && (
+              <div style={{ background: '#fffde7', border: '1.5px solid #ffe082', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', marginBottom: 4 }}>⏳ Prenotazione temporanea</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
+                    {fmtDate(selPost.data_inizio)} → {fmtDate(selPost.data_fine)}
+                  </div>
+                </div>
+                {selPost.data_fine && (() => {
+                  const giorni = Math.ceil((new Date(selPost.data_fine) - new Date()) / (1000 * 60 * 60 * 24))
+                  return (
+                    <div style={{ textAlign: 'center', background: giorni < 0 ? 'var(--red)' : '#ffe082', borderRadius: 8, padding: '6px 12px', flexShrink: 0 }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: giorni < 0 ? '#fff' : 'var(--navy)', lineHeight: 1 }}>{Math.abs(giorni)}</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: giorni < 0 ? '#fff' : '#b8860b', textTransform: 'uppercase', marginTop: 2 }}>
+                        {giorni < 0 ? 'scaduta' : 'giorni'}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
 
             {/* Dettagli occupazione */}
             {selPost.stato === 'occupato' && !pagMode && !confirmLibera && (
@@ -256,6 +309,31 @@ export default function Mappa({ db, onNavigate, showToast, onReload, role }) {
                     </div>
                   ))}
                 </div>
+
+                {/* Prezzo totale modificabile — solo admin */}
+                {isAdmin && (
+                  <div style={{ borderTop: '1px solid #dde8ff', marginTop: 10, paddingTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>Prezzo tot.</span>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none', fontSize: 13 }}>€</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={editPrezzo}
+                        onChange={e => setEditPrezzo(e.target.value)}
+                        placeholder="0.00"
+                        style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
+                      />
+                    </div>
+                    <button
+                      className="btn btn-primary"
+                      style={{ whiteSpace: 'nowrap', fontSize: 12, padding: '6px 12px', opacity: savingPrezzo ? 0.6 : 1 }}
+                      disabled={savingPrezzo}
+                      onClick={handleSavePrezzo}
+                    >
+                      {savingPrezzo ? '...' : 'Salva'}
+                    </button>
+                  </div>
+                )}
 
                 {/* Riepilogo pagamenti — solo admin */}
                 {isAdmin && (
