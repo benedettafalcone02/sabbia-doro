@@ -146,9 +146,15 @@
 .hidden     { opacity: .12; cursor: default; pointer-events: none; }
 
 /* ── PASSERELLA ── */
-.passerella {
+.righeWrap {
+  position: relative;
+}
+
+.passerellaBar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   width: 10px;
-  height: 28px;
   background: repeating-linear-gradient(
     0deg,
     #e8d5a3,
@@ -157,8 +163,19 @@
     #c4b080 6px
   );
   border-radius: 3px;
-  flex-shrink: 0;
-  opacity: .8;
+  pointer-events: none;
+  z-index: 2;
+  opacity: .9;
+}
+
+.passerellaBarPalme { left: 312px; }
+.passerellaBarOmbrA { left: 288px; }
+.passerellaBarOmbrB { left: 240px; }
+
+@media (max-width: 768px) {
+  .passerellaBarPalme { left: 284px; }
+  .passerellaBarOmbrA { left: 264px; }
+  .passerellaBarOmbrB { left: 224px; }
 }
 
 /* ── MOBILE ── */
