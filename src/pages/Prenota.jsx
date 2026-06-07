@@ -1,37 +1,42 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { today } from '../lib/data'
+import { today, fmtEur } from '../lib/data'
 import LoadingScreen from '../components/LoadingScreen'
 
+function fmtDate(d) {
+  if (!d) return '—'
+  const [y, m, g] = d.split('-')
+  return `${g}/${m}/${y}`
+}
+
 export default function Prenota({ db, showToast, onReload, initialPostId }) {
-  const { postazioni, clienti, loading } = db
+  const { postazioni, clienti, occupazioni, loading } = db
 
   const [form, setForm] = useState(() => {
     const base = {
       postazione_id: '',
-      cliente_nome: '',
-      tipo: 'stagionale',
-      dotazione: '2lettini',
-      temporanea: false,
-      data_inizio: today(),
-      data_fine: '',
-      note: '',
-      lettini: 0,
-      sdraio: 0,
-      regista: 0,
+      cliente_nome:  '',
+      dotazione:     '2lettini',
+      temporanea:    false,
+      data_inizio:   today(),
+      data_fine:     '',
+      note:          '',
+      lettini:       2,
+      sdraio:        0,
+      regista:       0,
       prezzo_totale: '',
-      acconto: '',
     }
     if (!initialPostId) return base
-    const pos = postazioni.find(p => p.id === initialPostId)
+    const pos      = postazioni.find(p => p.id === initialPostId)
     const defaults = pos?.tipo === 'palma'
       ? { dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }
-      : { dotazione: '2lettini', lettini: 2, sdraio: 0, regista: 0 }
+      : { dotazione: '2lettini',         lettini: 2, sdraio: 0, regista: 0 }
     return { ...base, postazione_id: initialPostId, ...defaults }
   })
-  const [saving, setSaving] = useState(false)
+
+  const [saving, setSaving]             = useState(false)
   const [cercaCliente, setCercaCliente] = useState('')
-  const [showSuggerimenti, setShowSuggerimenti] = useState(false)
+  const [showSugg, setShowSugg]         = useState(false)
 
   const postazioneSelezionata = postazioni.find(p => p.id === form.postazione_id)
 
@@ -42,69 +47,71 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   function handlePostazioneChange(id) {
-    const pos = postazioni.find(p => p.id === id)
+    const pos      = postazioni.find(p => p.id === id)
     const defaults = !pos ? {}
       : pos.tipo === 'palma'
         ? { dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }
-        : { dotazione: '2lettini', lettini: 2, sdraio: 0, regista: 0 }
+        : { dotazione: '2lettini',         lettini: 2, sdraio: 0, regista: 0 }
     setForm(f => ({ ...f, postazione_id: id, ...defaults }))
   }
 
   function handleDotazione(dot) {
     const map = {
-      '2lettini':          { lettini: 2, sdraio: 0, regista: 0 },
-      'lettino_sdraio':    { lettini: 1, sdraio: 1, regista: 0 },
-      'lettino_regista':   { lettini: 1, sdraio: 0, regista: 1 },
-      '3lettini_regista':  { lettini: 3, sdraio: 0, regista: 1 },
+      '2lettini':         { lettini: 2, sdraio: 0, regista: 0 },
+      'lettino_sdraio':   { lettini: 1, sdraio: 1, regista: 0 },
+      'lettino_regista':  { lettini: 1, sdraio: 0, regista: 1 },
+      '3lettini_regista': { lettini: 3, sdraio: 0, regista: 1 },
     }
     setForm(f => ({ ...f, dotazione: dot, ...(map[dot] || {}) }))
   }
 
+  // Rileva conflitto di date per la postazione selezionata
+  const conflict = (() => {
+    if (!form.postazione_id || !form.data_inizio || !form.data_fine) return null
+    const pos = postazioni.find(p => p.id === form.postazione_id)
+    if (!pos) return null
+    return (occupazioni || []).find(o =>
+      o.tipo === pos.tipo &&
+      Number(o.numero) === Number(pos.numero) &&
+      o.data_inizio <= form.data_fine &&
+      o.data_fine   >= form.data_inizio
+    ) || null
+  })()
+
   async function handleSalva() {
-    if (!form.postazione_id) { showToast('Seleziona una postazione', 'error'); return }
+    if (!form.postazione_id)      { showToast('Seleziona una postazione', 'error'); return }
     if (!form.cliente_nome.trim()) { showToast('Inserisci il nome del cliente', 'error'); return }
-    if (form.temporanea && (!form.data_inizio || !form.data_fine)) {
-      showToast('Inserisci data inizio e data fine', 'error'); return
+    if (!form.data_inizio || !form.data_fine) { showToast('Date obbligatorie', 'error'); return }
+    if (form.data_fine < form.data_inizio)    { showToast('Data fine deve essere ≥ data inizio', 'error'); return }
+    if (conflict) {
+      showToast(`Conflitto: già prenotata dal ${fmtDate(conflict.data_inizio)} al ${fmtDate(conflict.data_fine)}`, 'error')
+      return
     }
 
     setSaving(true)
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
-
-      const { error: delError } = await supabase
-        .from('occupazioni')
-        .delete()
-        .eq('tipo', pos.tipo)
-        .eq('numero', pos.numero)
-
-      if (delError) throw delError
-
-      const { error } = await supabase
-        .from('occupazioni')
-        .insert({
-          tipo: pos.tipo,
-          numero: pos.numero,
-          cliente: form.cliente_nome.trim().toUpperCase(),
-          stato: 'occupato',
-          lettini: form.lettini,
-          sdraio: form.sdraio,
-          regista: form.regista,
-          prezzo_totale: form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
-          acconto:       form.acconto       ? parseFloat(form.acconto)       : null,
-          temporanea:    form.temporanea,
-          data_inizio:   form.temporanea ? form.data_inizio : null,
-          data_fine:     form.temporanea ? form.data_fine   : null,
-        })
-
+      const { error } = await supabase.from('occupazioni').insert({
+        tipo:          pos.tipo,
+        numero:        pos.numero,
+        cliente:       form.cliente_nome.trim().toUpperCase(),
+        lettini:       form.lettini,
+        sdraio:        form.sdraio,
+        regista:       form.regista,
+        prezzo_totale: form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
+        temporanea:    form.temporanea,
+        data_inizio:   form.data_inizio,
+        data_fine:     form.data_fine,
+        note:          form.note || null,
+      })
       if (error) throw error
 
       showToast('Prenotazione salvata ✓')
       if (onReload) onReload()
-
       setForm({
-        postazione_id: '', cliente_nome: '', tipo: 'stagionale',
-        dotazione: '2lettini', temporanea: false, data_inizio: today(), data_fine: '', note: '',
-        lettini: 2, sdraio: 0, regista: 0, prezzo_totale: '', acconto: '',
+        postazione_id: '', cliente_nome: '', dotazione: '2lettini',
+        temporanea: false, data_inizio: today(), data_fine: '', note: '',
+        lettini: 2, sdraio: 0, regista: 0, prezzo_totale: '',
       })
       setCercaCliente('')
     } catch (err) {
@@ -116,7 +123,16 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
 
   if (loading) return <LoadingScreen />
 
-  const libere = postazioni.filter(p => p.stato === 'libero')
+  const palme = postazioni.filter(p => p.tipo === 'palma').sort((a, b) => a.numero - b.numero)
+  const ombrA = postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'A').sort((a, b) => a.numero - b.numero)
+  const ombrB = postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'B').sort((a, b) => a.numero - b.numero)
+
+  function postazioneLabel(p) {
+    const base = p.tipo === 'palma'
+      ? `🌴 Palma ${p.numero} — F${p.fila}`
+      : `☂ Ombr. ${p.numero} S.${p.settore} F${p.fila}`
+    return p.stato !== 'libero' ? `${base} (occ. oggi)` : base
+  }
 
   return (
     <div className="page-content">
@@ -132,35 +148,54 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
             onChange={e => handlePostazioneChange(e.target.value)}
             style={{ fontSize: 15, padding: '12px 14px' }}
           >
-            <option value="">Seleziona postazione libera...</option>
-            <optgroup label="🌴 Palme libere">
-              {libere.filter(p => p.tipo === 'palma').map(p => (
-                <option key={p.id} value={p.id}>Palma {p.numero} — Fila {p.fila} — €{p.prezzo_stagionale}</option>
-              ))}
+            <option value="">Seleziona postazione...</option>
+            <optgroup label="🌴 Palme">
+              {palme.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
             </optgroup>
-            <optgroup label="☂ Ombrelloni liberi — Sett. A">
-              {libere.filter(p => p.tipo === 'ombrellone' && p.settore === 'A').map(p => (
-                <option key={p.id} value={p.id}>Ombr. {p.numero} S.A F{p.fila} — €{p.prezzo_2lettini}</option>
-              ))}
+            <optgroup label="☂ Ombrelloni — Sett. A">
+              {ombrA.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
             </optgroup>
-            <optgroup label="☂ Ombrelloni liberi — Sett. B">
-              {libere.filter(p => p.tipo === 'ombrellone' && p.settore === 'B').map(p => (
-                <option key={p.id} value={p.id}>Ombr. {p.numero} S.B F{p.fila} — €{p.prezzo_2lettini}</option>
-              ))}
+            <optgroup label="☂ Ombrelloni — Sett. B">
+              {ombrB.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
             </optgroup>
           </select>
         </div>
 
-        {/* Info postazione selezionata */}
+        {/* Info postazione */}
         {postazioneSelezionata && (
-          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, border: '1px solid #dde8ff' }}>
+          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, border: '1px solid #dde8ff', display: 'flex', alignItems: 'center', gap: 8 }}>
             <strong style={{ color: 'var(--navy)' }}>
               {postazioneSelezionata.tipo === 'palma' ? '🌴 Palma' : '☂ Ombrellone'} {postazioneSelezionata.numero}
             </strong>
-            <span style={{ color: 'var(--muted)', marginLeft: 8 }}>
-              Fila {postazioneSelezionata.fila}
-              {postazioneSelezionata.settore && ` · Sett. ${postazioneSelezionata.settore}`}
+            <span style={{ color: 'var(--muted)' }}>
+              F{postazioneSelezionata.fila}{postazioneSelezionata.settore && ` · S.${postazioneSelezionata.settore}`}
             </span>
+            {postazioneSelezionata.stato !== 'libero' && (
+              <span className="badge badge-red" style={{ fontSize: 11 }}>occupata oggi</span>
+            )}
+          </div>
+        )}
+
+        {/* DATE — sempre obbligatorie */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Data inizio *</label>
+            <input type="date" value={form.data_inizio}
+              onChange={e => set('data_inizio', e.target.value)}
+              style={{ fontSize: 14 }} />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Data fine *</label>
+            <input type="date" value={form.data_fine} min={form.data_inizio}
+              onChange={e => set('data_fine', e.target.value)}
+              style={{ fontSize: 14 }} />
+          </div>
+        </div>
+
+        {/* Avviso conflitto */}
+        {conflict && (
+          <div style={{ background: '#fff0f0', borderRadius: 8, padding: '10px 12px', marginBottom: 14, border: '1.5px solid var(--red)', fontSize: 13, color: 'var(--red)', fontWeight: 600 }}>
+            ⚠️ Conflitto: già prenotata da <strong>{conflict.cliente}</strong> ({fmtDate(conflict.data_inizio)} → {fmtDate(conflict.data_fine)})
           </div>
         )}
 
@@ -170,27 +205,16 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
           <input
             type="text"
             value={form.cliente_nome}
-            onChange={e => {
-              set('cliente_nome', e.target.value)
-              setCercaCliente(e.target.value)
-              setShowSuggerimenti(true)
-            }}
-            onBlur={() => setTimeout(() => setShowSuggerimenti(false), 200)}
+            onChange={e => { set('cliente_nome', e.target.value); setCercaCliente(e.target.value); setShowSugg(true) }}
+            onBlur={() => setTimeout(() => setShowSugg(false), 200)}
             placeholder="Nome cliente (cerca o scrivi nuovo)"
             style={{ fontSize: 15, padding: '12px 14px', textTransform: 'uppercase' }}
           />
-          {showSuggerimenti && suggerimenti.length > 0 && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, right: 0,
-              background: '#fff', border: '1.5px solid var(--sky)', borderRadius: 10,
-              boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, overflow: 'hidden',
-            }}>
+          {showSugg && suggerimenti.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid var(--sky)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, overflow: 'hidden' }}>
               {suggerimenti.map(c => (
-                <div
-                  key={c.id}
-                  onMouseDown={() => { set('cliente_nome', c.nome); setCercaCliente(c.nome); setShowSuggerimenti(false) }}
-                  style={{ padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid #f0f2f5', fontSize: 14, fontWeight: 600, color: 'var(--navy)' }}
-                >
+                <div key={c.id} onMouseDown={() => { set('cliente_nome', c.nome); setCercaCliente(c.nome); setShowSugg(false) }}
+                  style={{ padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid #f0f2f5', fontSize: 14, fontWeight: 600, color: 'var(--navy)' }}>
                   👤 {c.nome}
                 </div>
               ))}
@@ -208,18 +232,14 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
               { val: 'lettino_regista',  label: '1 Lettino + 1 Regista' },
               { val: '3lettini_regista', label: '3 Lettini + Regista' },
             ].map(d => (
-              <button
-                key={d.val}
-                className={`dotazione-btn${form.dotazione === d.val ? ' active' : ''}`}
-                onClick={() => handleDotazione(d.val)}
-              >
+              <button key={d.val} className={`dotazione-btn${form.dotazione === d.val ? ' active' : ''}`} onClick={() => handleDotazione(d.val)}>
                 {d.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* RIEPILOGO ATTREZZATURA */}
+        {/* STEPPER ATTREZZATURA */}
         <div className="stepper-grid">
           {[
             { label: 'Lettini 🛏', key: 'lettini' },
@@ -229,69 +249,34 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
             <div key={a.key} className="stepper-card">
               <div className="stepper-label">{a.label}</div>
               <div className="stepper-controls">
-                <button
-                  className="stepper-btn"
-                  onClick={() => set(a.key, Math.max(0, form[a.key] - 1))}
-                >−</button>
+                <button className="stepper-btn" onClick={() => set(a.key, Math.max(0, form[a.key] - 1))}>−</button>
                 <span className="stepper-val">{form[a.key]}</span>
-                <button
-                  className="stepper-btn"
-                  onClick={() => set(a.key, form[a.key] + 1)}
-                >+</button>
+                <button className="stepper-btn" onClick={() => set(a.key, form[a.key] + 1)}>+</button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* PREZZI */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div className="form-group">
-            <label>Prezzo totale (€)</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
-              <input
-                type="number"
-                value={form.prezzo_totale}
-                onChange={e => set('prezzo_totale', e.target.value)}
-                placeholder="0.00"
-                min="0" step="0.01"
-                style={{ fontSize: 15, padding: '12px 14px', paddingLeft: 28 }}
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Acconto (€)</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
-              <input
-                type="number"
-                value={form.acconto}
-                onChange={e => set('acconto', e.target.value)}
-                placeholder="0.00"
-                min="0" step="0.01"
-                style={{ fontSize: 15, padding: '12px 14px', paddingLeft: 28 }}
-              />
-            </div>
+        {/* PREZZO */}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label>Prezzo totale (€)</label>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, pointerEvents: 'none' }}>€</span>
+            <input
+              type="number" value={form.prezzo_totale}
+              onChange={e => set('prezzo_totale', e.target.value)}
+              placeholder="0.00" min="0" step="0.01"
+              style={{ fontSize: 15, padding: '12px 14px', paddingLeft: 28 }}
+            />
           </div>
         </div>
 
-        {form.prezzo_totale && (
-          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, border: '1px solid #dde8ff', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--muted)', fontWeight: 600 }}>Saldo residuo</span>
-            <strong style={{ color: 'var(--navy)', fontSize: 15 }}>
-              € {Math.max(0, (parseFloat(form.prezzo_totale) || 0) - (parseFloat(form.acconto) || 0)).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-            </strong>
-          </div>
-        )}
-
-        {/* PRENOTAZIONE TEMPORANEA */}
+        {/* TEMPORANEA */}
         <div
-          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fffde7', borderRadius: 10, border: '1.5px solid #ffe082', marginBottom: 16, cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fffde7', borderRadius: 10, border: '1.5px solid #ffe082', marginBottom: 20, cursor: 'pointer' }}
           onClick={() => set('temporanea', !form.temporanea)}
         >
-          <input
-            type="checkbox"
-            checked={form.temporanea}
+          <input type="checkbox" checked={form.temporanea}
             onChange={e => set('temporanea', e.target.checked)}
             onClick={e => e.stopPropagation()}
             style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#f0c030', flexShrink: 0 }}
@@ -302,47 +287,17 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
           </div>
         </div>
 
-        {form.temporanea && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Data inizio *</label>
-              <input
-                type="date"
-                value={form.data_inizio}
-                onChange={e => set('data_inizio', e.target.value)}
-                style={{ fontSize: 14 }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Data fine *</label>
-              <input
-                type="date"
-                value={form.data_fine}
-                onChange={e => set('data_fine', e.target.value)}
-                style={{ fontSize: 14 }}
-              />
-            </div>
-          </div>
-        )}
-
         {/* NOTE */}
         <div className="form-group" style={{ marginBottom: 20 }}>
           <label>Note (opzionale)</label>
-          <textarea
-            value={form.note}
-            onChange={e => set('note', e.target.value)}
-            placeholder="Es. porta cane, allergia sole..."
-            rows={2}
-            style={{ fontSize: 14 }}
-          />
+          <textarea value={form.note} onChange={e => set('note', e.target.value)}
+            placeholder="Es. porta cane, allergia sole..." rows={2} style={{ fontSize: 14 }} />
         </div>
 
-        {/* SALVA */}
         <button
           className="btn btn-primary btn-lg"
           style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px', opacity: saving ? .7 : 1 }}
-          onClick={handleSalva}
-          disabled={saving}
+          onClick={handleSalva} disabled={saving}
         >
           {saving ? '⏳ Salvataggio...' : '💾 Salva Prenotazione'}
         </button>

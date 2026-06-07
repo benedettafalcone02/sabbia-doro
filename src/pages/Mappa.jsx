@@ -36,9 +36,7 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
 
   useEffect(() => {
     if (selPost) {
-      const tot = selPost.prezzo_totale
-      const ref = selPost.tipo === 'palma' ? (selPost.prezzo_stagionale ?? null) : null
-      setEditPrezzo(tot != null ? String(tot) : ref != null ? String(ref) : '')
+      setEditPrezzo(selPost.prezzo_totale != null ? String(selPost.prezzo_totale) : '')
       setIsEditingPrezzo(false)
     }
   }, [selected])
@@ -116,8 +114,7 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
       const { error } = await supabase
         .from('occupazioni')
         .delete()
-        .eq('tipo', post.tipo)
-        .eq('numero', post.numero)
+        .eq('id', post.occ_id)
       if (error) throw error
       showToast('Postazione liberata ✓')
       if (onReload) onReload()
@@ -166,12 +163,11 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
 
   const selPost = selected ? postazioni.find(p => p.id === selected) : null
 
-  const refPrice = selPost
-    ? (selPost.tipo === 'palma' ? selPost.prezzo_stagionale : selPost.prezzo_2lettini)
-    : 0
   const pagamenti    = selPost?.pagamenti || []
   const totalePagato = pagamenti.reduce((s, pg) => s + Number(pg.importo), 0)
-  const saldoResiduo = Math.max(0, refPrice - totalePagato)
+  const saldoResiduo = selPost?.prezzo_totale != null
+    ? Math.max(0, selPost.prezzo_totale - totalePagato)
+    : null
 
   return (
     <div className="page-content">
@@ -258,73 +254,34 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
       >
         {selPost && (
           <div>
-            {/* Prezzo — solo admin, editabile inline */}
-            {isAdmin && (
-              <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13 }}>
-                {selPost.tipo === 'palma' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Stagionale:</span>
-                    {isEditingPrezzo ? (
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>€</span>
-                        <input
-                          type="number" min="0" step="0.01"
-                          value={editPrezzo}
-                          onChange={e => setEditPrezzo(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && e.target.blur()}
-                          onBlur={() => { setIsEditingPrezzo(false); handleSavePrezzo() }}
-                          autoFocus
-                          style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
-                        />
-                      </div>
-                    ) : (
-                      <strong
-                        onClick={() => setIsEditingPrezzo(true)}
-                        title="Clicca per modificare il prezzo totale"
-                        style={{ color: 'var(--navy)', fontSize: 15, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
-                      >
-                        {fmtEur(selPost.prezzo_totale ?? selPost.prezzo_stagionale)}
-                      </strong>
-                    )}
-                    {!isEditingPrezzo && selPost.prezzo_totale != null && selPost.prezzo_totale !== selPost.prezzo_stagionale && (
-                      <span style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'line-through' }}>{fmtEur(selPost.prezzo_stagionale)}</span>
-                    )}
+            {/* Prezzo totale — solo admin, editabile inline */}
+            {isAdmin && selPost.stato !== 'libero' && (
+              <div style={{ background: '#f7f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Prezzo tot.:</span>
+                {isEditingPrezzo ? (
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>€</span>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={editPrezzo}
+                      onChange={e => setEditPrezzo(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                      onBlur={() => { setIsEditingPrezzo(false); handleSavePrezzo() }}
+                      autoFocus
+                      style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
+                    />
                   </div>
                 ) : (
-                  <div>
-                    <div style={{ display: 'flex', gap: 14, marginBottom: 8 }}>
-                      <div>2L: <strong>{fmtEur(selPost.prezzo_2lettini)}</strong></div>
-                      <div>L+R: <strong>{fmtEur(selPost.prezzo_lettino_regista)}</strong></div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #e8edf8', paddingTop: 8 }}>
-                      <span style={{ color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Prezzo tot.:</span>
-                      {isEditingPrezzo ? (
-                        <div style={{ position: 'relative', flex: 1 }}>
-                          <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>€</span>
-                          <input
-                            type="number" min="0" step="0.01"
-                            value={editPrezzo}
-                            onChange={e => setEditPrezzo(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && e.target.blur()}
-                            onBlur={() => { setIsEditingPrezzo(false); handleSavePrezzo() }}
-                            autoFocus
-                            style={{ paddingLeft: 22, fontSize: 14, width: '100%' }}
-                          />
-                        </div>
-                      ) : (
-                        <strong
-                          onClick={() => setIsEditingPrezzo(true)}
-                          title="Clicca per modificare il prezzo totale"
-                          style={{ color: 'var(--navy)', fontSize: 15, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
-                        >
-                          {selPost.prezzo_totale != null
-                            ? fmtEur(selPost.prezzo_totale)
-                            : <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 13 }}>— clicca per impostare</span>
-                          }
-                        </strong>
-                      )}
-                    </div>
-                  </div>
+                  <strong
+                    onClick={() => setIsEditingPrezzo(true)}
+                    title="Clicca per modificare"
+                    style={{ color: 'var(--navy)', fontSize: 15, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+                  >
+                    {selPost.prezzo_totale != null
+                      ? fmtEur(selPost.prezzo_totale)
+                      : <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 13 }}>— clicca per impostare</span>
+                    }
+                  </strong>
                 )}
               </div>
             )}
@@ -335,16 +292,23 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
               </span>
             </div>
 
-            {/* Banner date — solo temporanee */}
-            {selPost.temporanea && (
-              <div style={{ background: '#fffde7', border: '1.5px solid #ffe082', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Date prenotazione corrente */}
+            {selPost.stato !== 'libero' && selPost.data_inizio && (
+              <div style={{
+                background: selPost.temporanea ? '#fffde7' : '#f0f4ff',
+                border: `1.5px solid ${selPost.temporanea ? '#ffe082' : '#dde8ff'}`,
+                borderRadius: 10, padding: '10px 14px', marginBottom: 14,
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', marginBottom: 4 }}>⏳ Prenotazione temporanea</div>
+                  {selPost.temporanea && (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#b8860b', textTransform: 'uppercase', marginBottom: 4 }}>⏳ Temporanea</div>
+                  )}
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
                     {fmtDate(selPost.data_inizio)} → {fmtDate(selPost.data_fine)}
                   </div>
                 </div>
-                {selPost.data_fine && (() => {
+                {selPost.temporanea && selPost.data_fine && (() => {
                   const giorni = Math.ceil((new Date(selPost.data_fine) - new Date()) / (1000 * 60 * 60 * 24))
                   return (
                     <div style={{ textAlign: 'center', background: giorni < 0 ? 'var(--red)' : '#ffe082', borderRadius: 8, padding: '6px 12px', flexShrink: 0 }}>
@@ -394,6 +358,32 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Timeline prenotazioni future */}
+            {!pagMode && !confirmLibera && selPost.prenotazioni?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
+                  📅 Prenotazioni ({selPost.prenotazioni.length})
+                </div>
+                {selPost.prenotazioni.map(pr => (
+                  <div key={pr.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '7px 10px', borderRadius: 8, marginBottom: 4,
+                    background: pr.id === selPost.occ_id ? '#e8f0ff' : '#f7f9ff',
+                    border: `1px solid ${pr.id === selPost.occ_id ? '#c5d5f5' : '#eee'}`,
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {pr.cliente || '—'}
+                        {pr.id === selPost.occ_id && <span style={{ fontSize: 10, color: 'var(--sky)', fontWeight: 600 }}>● oggi</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmtDate(pr.data_inizio)} → {fmtDate(pr.data_fine)}</div>
+                    </div>
+                    {pr.temporanea && <span className="badge badge-yellow" style={{ fontSize: 10, flexShrink: 0 }}>temp</span>}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -489,7 +479,7 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                 {/* Totale pagato + Saldo residuo */}
                 <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 14px', border: '1px solid #dde8ff', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 12 }}>
                   {[
-                    { label: 'Prezzo',  val: refPrice,     color: 'var(--navy)' },
+                    { label: 'Prezzo',  val: selPost?.prezzo_totale || 0, color: 'var(--navy)' },
                     { label: 'Pagato',  val: totalePagato, color: 'var(--green)' },
                     { label: 'Saldo',   val: saldoResiduo, color: 'var(--red)' },
                   ].map(r => (
@@ -550,6 +540,13 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
               isAdmin ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
+                    className="btn btn-yellow btn-lg"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => { closeModal(); onNavigatePrenota ? onNavigatePrenota(selPost.id) : onNavigate && onNavigate('prenota') }}
+                  >
+                    ➕ Aggiungi prenotazione
+                  </button>
+                  <button
                     className="btn btn-outline"
                     style={{ width: '100%', justifyContent: 'center' }}
                     onClick={() => setPagMode(true)}
@@ -557,18 +554,11 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                     💳 Gestisci pagamenti
                   </button>
                   <button
-                    className="btn btn-outline"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                    onClick={() => setConfirmLibera(true)}
-                  >
-                    🔓 Libera postazione
-                  </button>
-                  <button
                     className="btn"
                     style={{ width: '100%', justifyContent: 'center', background: 'var(--red)', color: '#fff' }}
                     onClick={() => setConfirmLibera(true)}
                   >
-                    🗑 Elimina prenotazione
+                    🗑 Elimina prenotazione oggi
                   </button>
                   <button
                     className="btn btn-outline"

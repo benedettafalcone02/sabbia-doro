@@ -3,9 +3,10 @@ import { generatePostazioni, normalizeCliente } from '../lib/data'
 import { supabase } from '../lib/supabase'
 
 const initialDB = {
-  postazioni: generatePostazioni(),
-  clienti: [],
-  loading: true,
+  postazioni:  generatePostazioni(),
+  clienti:     [],
+  occupazioni: [],
+  loading:     true,
 }
 
 export function useStore() {
@@ -23,51 +24,86 @@ export function useStore() {
       setDB(p => ({ ...p, loading: false }))
       return
     }
-    const data    = occRes.data
+    const allOcc  = occRes.data
     const pagData = pagRes.error ? [] : (pagRes.data || [])
 
     setDB(prev => {
       const oggi = new Date().toISOString().split('T')[0]
+
+      // Raggruppa per (tipo, numero)
+      const occByPost = {}
+      allOcc.forEach(occ => {
+        const key = `${occ.tipo}_${occ.numero}`
+        if (!occByPost[key]) occByPost[key] = []
+        occByPost[key].push(occ)
+      })
+
       const postazioni = prev.postazioni.map(p => {
-        const occ = data.find(o => Number(o.numero) === Number(p.numero) && o.tipo === p.tipo)
-        const scaduta = occ?.temporanea && occ?.data_fine && occ.data_fine < oggi
-        if (!occ || scaduta) return { ...p, stato: 'libero', cliente: null, lettini: 0, sdraio: 0, regista: 0 }
+        const key  = `${p.tipo}_${p.numero}`
+        const occs = occByPost[key] || []
+
+        // Prenotazione attiva OGGI
+        const occOggi = occs.find(o => o.data_inizio <= oggi && o.data_fine >= oggi)
+
+        // Tutte le prenotazioni presenti e future (per timeline)
+        const prenotazioni = occs
+          .filter(o => o.data_fine >= oggi)
+          .sort((a, b) => a.data_inizio.localeCompare(b.data_inizio))
+          .map(o => ({
+            id:           o.id,
+            cliente:      o.cliente      || null,
+            data_inizio:  o.data_inizio,
+            data_fine:    o.data_fine,
+            temporanea:   o.temporanea   || false,
+            lettini:      Number(o.lettini)  || 0,
+            sdraio:       Number(o.sdraio)   || 0,
+            regista:      Number(o.regista)  || 0,
+            prezzo_totale: o.prezzo_totale != null ? Number(o.prezzo_totale) : null,
+            pagamenti:    pagData.filter(pg => pg.occupazione_id === o.id),
+          }))
+
+        if (!occOggi) {
+          return { ...p, stato: 'libero', cliente: null, lettini: 0, sdraio: 0, regista: 0, prenotazioni }
+        }
+
         return {
           ...p,
-          stato: 'occupato',
-          occ_id:     occ.id,
-          cliente:    occ.cliente    || null,
-          lettini:    Number(occ.lettini)  || 0,
-          sdraio:     Number(occ.sdraio)   || 0,
-          regista:    Number(occ.regista)  || 0,
-          telefono:   occ.telefono   || null,
-          email:      occ.email      || null,
-          n_persone:  occ.n_persone  ? Number(occ.n_persone) : null,
-          data_inizio: occ.data_inizio || null,
-          data_fine:   occ.data_fine   || null,
-          note:       occ.note       || null,
-          acconto:       occ.acconto       != null ? Number(occ.acconto)       : null,
-          prezzo_totale: occ.prezzo_totale != null ? Number(occ.prezzo_totale) : null,
-          temporanea:   occ.temporanea   || false,
-          pagamenti:  pagData.filter(pg => pg.occupazione_id === occ.id),
+          stato:         'occupato',
+          occ_id:        occOggi.id,
+          cliente:       occOggi.cliente    || null,
+          lettini:       Number(occOggi.lettini)  || 0,
+          sdraio:        Number(occOggi.sdraio)   || 0,
+          regista:       Number(occOggi.regista)  || 0,
+          telefono:      occOggi.telefono   || null,
+          email:         occOggi.email      || null,
+          n_persone:     occOggi.n_persone  ? Number(occOggi.n_persone) : null,
+          data_inizio:   occOggi.data_inizio || null,
+          data_fine:     occOggi.data_fine   || null,
+          note:          occOggi.note       || null,
+          acconto:       occOggi.acconto       != null ? Number(occOggi.acconto)       : null,
+          prezzo_totale: occOggi.prezzo_totale != null ? Number(occOggi.prezzo_totale) : null,
+          temporanea:    occOggi.temporanea   || false,
+          pagamenti:     pagData.filter(pg => pg.occupazione_id === occOggi.id),
+          prenotazioni,
         }
       })
 
+      // Costruisce clienti da tutte le occupazioni
       const clientiMap = {}
-      data.forEach(occ => {
+      allOcc.forEach(occ => {
         if (!occ.cliente) return
         const key = normalizeCliente(occ.cliente)
         if (!clientiMap[key]) {
           clientiMap[key] = {
-            id:          `cl_${key}`,
-            nome:        occ.cliente.trim(),
-            cognome:     '',
-            telefono:    occ.telefono   || '',
-            email:       occ.email      || '',
-            n_persone:   occ.n_persone  ? Number(occ.n_persone) : null,
-            data_inizio: occ.data_inizio || '',
-            data_fine:   occ.data_fine   || '',
-            note:        occ.note        || '',
+            id:            `cl_${key}`,
+            nome:          occ.cliente.trim(),
+            cognome:       '',
+            telefono:      occ.telefono   || '',
+            email:         occ.email      || '',
+            n_persone:     occ.n_persone  ? Number(occ.n_persone) : null,
+            data_inizio:   occ.data_inizio || '',
+            data_fine:     occ.data_fine   || '',
+            note:          occ.note        || '',
             acconto:       occ.acconto       != null ? Number(occ.acconto)       : null,
             prezzo_totale: occ.prezzo_totale != null ? Number(occ.prezzo_totale) : null,
             postazioni_occ: [],
@@ -82,7 +118,13 @@ export function useStore() {
         })
       })
 
-      return { ...prev, postazioni, clienti: Object.values(clientiMap), loading: false }
+      return {
+        ...prev,
+        postazioni,
+        clienti:     Object.values(clientiMap),
+        occupazioni: allOcc,
+        loading:     false,
+      }
     })
   }
 
