@@ -15,6 +15,12 @@ function fmtDate(d) {
   return `${g}/${m}/${y}`
 }
 
+function waLink(tel) {
+  if (!tel) return null
+  const n = String(tel).replace(/\D/g, '')
+  return `https://wa.me/${n.startsWith('39') ? n : '39' + n}`
+}
+
 function fmtEur(v) {
   if (v == null) return '—'
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(v)
@@ -341,7 +347,18 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--navy)' }}>{c.nome}</div>
                       {c.telefono && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{c.telefono}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{c.telefono}</span>
+                          {waLink(c.telefono) && (
+                            <a
+                              href={waLink(c.telefono)}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ fontSize: 16, lineHeight: 1, textDecoration: 'none' }}
+                            >💬</a>
+                          )}
+                        </div>
                       )}
                     </div>
                     <span className="badge badge-blue">{posts.length} post.</span>
@@ -421,7 +438,24 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                       <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.lettini) : '—'}</td>
                       <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.sdraio)  : '—'}</td>
                       <td style={{ fontWeight: 700 }}>{hasAny ? fmtAttr(tot.regista) : '—'}</td>
-                      {isAdmin && <td style={{ color: 'var(--sky)' }}>{c.telefono || '—'}</td>}
+                      {isAdmin && (
+                        <td>
+                          {c.telefono ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ color: 'var(--sky)', fontSize: 13 }}>{c.telefono}</span>
+                              {waLink(c.telefono) && (
+                                <a
+                                  href={waLink(c.telefono)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  style={{ fontSize: 15, lineHeight: 1, textDecoration: 'none' }}
+                                >💬</a>
+                              )}
+                            </div>
+                          ) : '—'}
+                        </td>
+                      )}
                       {isAdmin && (
                         <td style={{ fontWeight: 600, color: c.acconto ? 'var(--green)' : 'var(--muted)' }}>
                           {c.acconto != null ? fmtEur(c.acconto) : '—'}
@@ -472,10 +506,23 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Telefono</div>
-                    {selected.telefono
-                      ? <a href={`tel:${selected.telefono}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--sky)' }}>{selected.telefono}</a>
-                      : <span style={{ color: 'var(--muted)', fontSize: 13 }}>—</span>
-                    }
+                    {selected.telefono ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <a href={`tel:${selected.telefono}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--sky)' }}>{selected.telefono}</a>
+                        {waLink(selected.telefono) && (
+                          <a
+                            href={waLink(selected.telefono)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#16a34a', fontWeight: 700, textDecoration: 'none', background: '#dcfce7', borderRadius: 6, padding: '3px 8px' }}
+                          >
+                            💬 WhatsApp
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--muted)', fontSize: 13 }}>—</span>
+                    )}
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Email</div>
