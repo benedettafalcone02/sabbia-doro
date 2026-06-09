@@ -193,6 +193,11 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
     if (!post) return
     setSaving(true)
     try {
+      // Se stiamo confermando su una riga "disponibile", eliminala prima
+      if ((post.tipo_occupazione === 'disponibile' || post.tipo_occupazione === 'subaffitto_disponibile') && post.occ_id) {
+        const { error: delErr } = await supabase.from('occupazioni').delete().eq('id', post.occ_id)
+        if (delErr) throw delErr
+      }
       const { error } = await supabase.from('occupazioni').insert({
         tipo:             post.tipo,
         numero:           post.numero,

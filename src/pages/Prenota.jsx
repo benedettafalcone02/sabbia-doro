@@ -46,6 +46,20 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
 
   const postazioneSelezionata = postazioni.find(p => p.id === form.postazione_id)
 
+  // Se arriviamo da una card "disponibile" in Disponibilità, questa è una prenotazione subaffitto
+  const subaffittoRow = (() => {
+    if (!initialPostId || !initialDataInizio || !initialDataFine) return null
+    const pos = postazioni.find(p => p.id === initialPostId)
+    if (!pos) return null
+    return (occupazioni || []).find(o =>
+      o.tipo === pos.tipo &&
+      Number(o.numero) === Number(pos.numero) &&
+      (o.tipo_occupazione === 'disponibile' || o.tipo_occupazione === 'subaffitto_disponibile') &&
+      o.data_inizio === initialDataInizio &&
+      o.data_fine   === initialDataFine
+    ) || null
+  })()
+
   const suggerimenti = cercaCliente.length >= 2
     ? clienti.filter(c => c.nome.toLowerCase().includes(cercaCliente.toLowerCase())).slice(0, 5)
     : []
@@ -81,6 +95,7 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
   }
 
   // Rileva conflitto di date per la postazione selezionata
+  // Esclude la riga "disponibile" che stiamo per sostituire con il subaffitto
   const conflict = (() => {
     if (!form.postazione_id || !form.data_inizio || !form.data_fine) return null
     const pos = postazioni.find(p => p.id === form.postazione_id)
@@ -89,7 +104,8 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
       o.tipo === pos.tipo &&
       Number(o.numero) === Number(pos.numero) &&
       o.data_inizio <= form.data_fine &&
-      o.data_fine   >= form.data_inizio
+      o.data_fine   >= form.data_inizio &&
+      !(subaffittoRow && o.id === subaffittoRow.id)
     ) || null
   })()
 
@@ -106,18 +122,27 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
     setSaving(true)
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
+
+      // Se è un subaffitto: elimina la riga "disponibile" e salva come subaffitto
+      if (subaffittoRow) {
+        const { error: delErr } = await supabase.from('occupazioni').delete().eq('id', subaffittoRow.id)
+        if (delErr) throw delErr
+      }
+
       const { error } = await supabase.from('occupazioni').insert({
-        tipo:          pos.tipo,
-        numero:        pos.numero,
-        cliente:       form.cliente_nome.trim().toUpperCase(),
-        lettini:       form.lettini,
-        sdraio:        form.sdraio,
-        regista:       form.regista,
-        prezzo_totale: form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
-        temporanea:    form.temporanea,
-        data_inizio:   form.data_inizio,
-        data_fine:     form.data_fine,
-        note:          form.note || null,
+        tipo:             pos.tipo,
+        numero:           pos.numero,
+        cliente:          subaffittoRow ? subaffittoRow.cliente : form.cliente_nome.trim().toUpperCase(),
+        subaffittuario:   subaffittoRow ? form.cliente_nome.trim().toUpperCase() : null,
+        tipo_occupazione: subaffittoRow ? 'subaffitto' : null,
+        lettini:          form.lettini,
+        sdraio:           form.sdraio,
+        regista:          form.regista,
+        prezzo_totale:    form.prezzo_totale ? parseFloat(form.prezzo_totale) : null,
+        temporanea:       form.temporanea,
+        data_inizio:      form.data_inizio,
+        data_fine:        form.data_fine,
+        note:             form.note || null,
       })
       if (error) throw error
 
@@ -156,6 +181,20 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
 
       <div className="card">
 
+        {/* Banner subaffitto */}
+        {subaffittoRow && (
+          <div style={{ background: '#f5f0ff', border: '1.5px solid #c4b5fd', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4 }}>🟣 Prenotazione subaffitto</div>
+            <div style={{ fontSize: 13, color: 'var(--navy)' }}>
+              Stagionale: <strong>{subaffittoRow.cliente}</strong>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              {fmtDate(subaffittoRow.data_inizio)} → {fmtDate(subaffittoRow.data_fine)}
+            </div>
+            <div style={{ fontSize: 12, color: '#7c3aed', marginTop: 4 }}>Il cliente che inserisci diventerà il subaffittuario — la postazione apparirà viola in mappa.</div>
+          </div>
+        )}
+
         {/* POSTAZIONE */}
         <div className="form-group" style={{ marginBottom: 16 }}>
           <label>Postazione</label>
@@ -192,21 +231,23 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
           </div>
         )}
 
-        {/* TOGGLE STAGIONALE */}
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: stagionale ? '#e8f0ff' : '#f0f4ff', borderRadius: 10, border: `1.5px solid ${stagionale ? '#4a80e8' : '#dde8ff'}`, marginBottom: 14, cursor: 'pointer' }}
-          onClick={() => handleStagionale(!stagionale)}
-        >
-          <input type="checkbox" checked={stagionale}
-            onChange={e => handleStagionale(e.target.checked)}
-            onClick={e => e.stopPropagation()}
-            style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--navy)', flexShrink: 0 }}
-          />
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>📅 Prenotazione stagionale</div>
-            <div style={{ fontSize: 12, color: '#5a7bc7', marginTop: 2 }}>{fmtDate(STAGIONE_INIZIO)} → {fmtDate(STAGIONE_FINE)}</div>
+        {/* TOGGLE STAGIONALE — nascosto in contesto subaffitto */}
+        {!subaffittoRow && (
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: stagionale ? '#e8f0ff' : '#f0f4ff', borderRadius: 10, border: `1.5px solid ${stagionale ? '#4a80e8' : '#dde8ff'}`, marginBottom: 14, cursor: 'pointer' }}
+            onClick={() => handleStagionale(!stagionale)}
+          >
+            <input type="checkbox" checked={stagionale}
+              onChange={e => handleStagionale(e.target.checked)}
+              onClick={e => e.stopPropagation()}
+              style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--navy)', flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>📅 Prenotazione stagionale</div>
+              <div style={{ fontSize: 12, color: '#5a7bc7', marginTop: 2 }}>{fmtDate(STAGIONE_INIZIO)} → {fmtDate(STAGIONE_FINE)}</div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* DATE — mostrate solo se non stagionale */}
         {!stagionale && (
@@ -233,9 +274,9 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
           </div>
         )}
 
-        {/* CLIENTE */}
+        {/* CLIENTE / SUBAFFITTUARIO */}
         <div className="form-group" style={{ marginBottom: 16, position: 'relative' }}>
-          <label>Cliente</label>
+          <label>{subaffittoRow ? 'Subaffittuario' : 'Cliente'}</label>
           <input
             type="text"
             value={form.cliente_nome}
