@@ -105,7 +105,8 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
       Number(o.numero) === Number(pos.numero) &&
       o.data_inizio <= form.data_fine &&
       o.data_fine   >= form.data_inizio &&
-      !(subaffittoRow && o.id === subaffittoRow.id)
+      !(subaffittoRow && o.id === subaffittoRow.id) &&
+      !(subaffittoRow && (o.tipo_occupazione === 'stagionale' || !o.tipo_occupazione))
     ) || null
   })()
 
@@ -134,7 +135,7 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
         numero:           pos.numero,
         cliente:          subaffittoRow ? subaffittoRow.cliente : form.cliente_nome.trim().toUpperCase(),
         subaffittuario:   subaffittoRow ? form.cliente_nome.trim().toUpperCase() : null,
-        tipo_occupazione: subaffittoRow ? 'subaffitto' : null,
+        tipo_occupazione: subaffittoRow ? 'subaffitto' : 'stagionale',
         lettini:          form.lettini,
         sdraio:           form.sdraio,
         regista:          form.regista,

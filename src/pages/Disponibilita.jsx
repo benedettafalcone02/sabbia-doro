@@ -20,18 +20,37 @@ export default function Disponibilita({ db, onNavigatePrenota }) {
 
   if (loading) return <LoadingScreen />
 
-  // Una postazione è bloccata se ha un'occupazione NON subaffitto_disponibile nel periodo
+  // Postazione completamente libera: nessuna riga di qualsiasi tipo nel periodo
   function isLiberaInPeriodo(p) {
     return !(occupazioni || []).some(o =>
       o.tipo    === p.tipo &&
       Number(o.numero) === Number(p.numero) &&
       o.data_inizio <= dataFine &&
-      o.data_fine   >= dataInizio &&
-      !SUB_DISP_TYPES.has(o.tipo_occupazione)
+      o.data_fine   >= dataInizio
     )
   }
 
-  // Postazioni in subaffitto disponibile che coprono (anche parzialmente) il periodo
+  // Postazione disponibile per subaffitto: ha riga 'disponibile' nel periodo
+  // ma non ha già un 'subaffitto' che la blocchi
+  function isDisponibileSubaffitto(p) {
+    const hasDisp = (occupazioni || []).some(o =>
+      o.tipo    === p.tipo &&
+      Number(o.numero) === Number(p.numero) &&
+      SUB_DISP_TYPES.has(o.tipo_occupazione) &&
+      o.data_inizio <= dataFine &&
+      o.data_fine   >= dataInizio
+    )
+    if (!hasDisp) return false
+    return !(occupazioni || []).some(o =>
+      o.tipo    === p.tipo &&
+      Number(o.numero) === Number(p.numero) &&
+      o.tipo_occupazione === 'subaffitto' &&
+      o.data_inizio <= dataFine &&
+      o.data_fine   >= dataInizio
+    )
+  }
+
+  // Recupera la riga disponibile di una postazione per il periodo
   function getSubDisp(p) {
     return (occupazioni || []).filter(o =>
       o.tipo    === p.tipo &&
@@ -50,8 +69,8 @@ export default function Disponibilita({ db, onNavigatePrenota }) {
     return true
   }
 
-  const libere = searched ? postazioni.filter(p => isLiberaInPeriodo(p) && passaFiltri(p) && getSubDisp(p).length === 0) : []
-  const subDisp = searched ? postazioni.filter(p => isLiberaInPeriodo(p) && passaFiltri(p) && getSubDisp(p).length > 0) : []
+  const libere   = searched ? postazioni.filter(p => isLiberaInPeriodo(p)       && passaFiltri(p)) : []
+  const subDisp  = searched ? postazioni.filter(p => isDisponibileSubaffitto(p) && passaFiltri(p)) : []
 
   return (
     <div className="page-content">
