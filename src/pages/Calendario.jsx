@@ -73,28 +73,39 @@ export default function Calendario({ db }) {
 
   const detail = useMemo(() => {
     if (!sel) return { list: [], arrivi: 0, partenze: 0, daSaldare: 0 }
-    const list = (occupazioni || [])
-      .filter(o =>
-        !EXCLUDE.has(o.tipo_occupazione) &&
-        o.data_inizio && o.data_fine &&
-        o.data_inizio <= sel && o.data_fine >= sel
-      )
+
+    // Tutte le righe reali (no disponibile)
+    const mapped = (occupazioni || [])
+      .filter(o => !EXCLUDE.has(o.tipo_occupazione) && o.data_inizio && o.data_fine)
       .map(o => {
         const pags = (pagamenti || []).filter(pg => pg.occupazione_id === o.id)
         const pagato = pags.reduce((s, pg) => s + Number(pg.importo || 0), 0)
         const saldo = o.prezzo_totale != null ? Math.max(0, Number(o.prezzo_totale) - pagato) : null
         return { ...o, pagato, saldo }
       })
+
+    // Prenotazioni attive su questo giorno (per la lista)
+    const list = mapped
+      .filter(o => o.data_inizio <= sel && o.data_fine >= sel)
       .sort((a, b) => {
         if (a.tipo !== b.tipo) return a.tipo === 'palma' ? -1 : 1
         return Number(a.numero) - Number(b.numero)
       })
-    return {
-      list,
-      arrivi:    list.filter(o => o.data_inizio === sel).length,
-      partenze:  list.filter(o => o.data_fine   === sel).length,
-      daSaldare: list.filter(o => o.saldo > 0).length,
-    }
+
+    // Arrivi = prenotazioni che INIZIANO oggi
+    const arrivi = mapped.filter(o => o.data_inizio === sel).length
+
+    // Partenze = prenotazioni che FINISCONO oggi
+    const partenze = mapped.filter(o => o.data_fine === sel).length
+
+    // Da saldare = solo subaffitti e temporanee che arrivano O partono oggi con saldo aperto
+    const daSaldare = mapped.filter(o =>
+      (o.tipo_occupazione === 'subaffitto' || o.temporanea) &&
+      (o.data_inizio === sel || o.data_fine === sel) &&
+      o.saldo > 0
+    ).length
+
+    return { list, arrivi, partenze, daSaldare }
   }, [sel, occupazioni, pagamenti])
 
   if (loading) return <LoadingScreen />
