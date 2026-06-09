@@ -18,12 +18,6 @@ function fmtShort(s) {
   const [, mm, dd] = s.split('-')
   return `${dd}/${mm}`
 }
-function badgeStyle(n) {
-  if (!n) return { bg: '#f3f4f6', color: '#9ca3af' }
-  if (n < 100) return { bg: '#dcfce7', color: '#15803d' }
-  if (n < 200) return { bg: '#fef3c7', color: '#b45309' }
-  return { bg: '#fee2e2', color: '#dc2626' }
-}
 
 function PrenotaCard({ o }) {
   const isSub = o.tipo_occupazione === 'subaffitto'
@@ -101,22 +95,18 @@ export default function Calendario({ db }) {
     return arr
   }, [year, month])
 
-  const dayCounts = useMemo(() => {
-    const counts = {}
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const relevant = (occupazioni || []).filter(o => !EXCLUDE.has(o.tipo_occupazione))
-    for (let d = 1; d <= daysInMonth; d++) {
-      const s = toStr(year, month, d)
-      const seen = new Set()
-      for (const o of relevant) {
-        if (o.data_inizio && o.data_fine && o.data_inizio <= s && o.data_fine >= s) {
-          seen.add(`${o.tipo}_${o.numero}`)
-        }
-      }
-      counts[s] = seen.size
+  // Per ogni data: conta arrivi (data_inizio) e partenze (data_fine)
+  const dayStats = useMemo(() => {
+    const stats = {}
+    for (const o of (occupazioni || [])) {
+      if (EXCLUDE.has(o.tipo_occupazione) || !o.data_inizio || !o.data_fine) continue
+      if (!stats[o.data_inizio]) stats[o.data_inizio] = { a: 0, p: 0 }
+      stats[o.data_inizio].a++
+      if (!stats[o.data_fine]) stats[o.data_fine] = { a: 0, p: 0 }
+      stats[o.data_fine].p++
     }
-    return counts
-  }, [occupazioni, year, month])
+    return stats
+  }, [occupazioni])
 
   const detail = useMemo(() => {
     if (!sel) return { list: [], arrivi: 0, partenze: 0, daSaldare: 0 }
@@ -186,8 +176,7 @@ export default function Calendario({ db }) {
           {calDays.map((day, idx) => {
             if (!day) return <div key={idx} />
             const s = toStr(year, month, day)
-            const cnt = dayCounts[s] || 0
-            const bs = badgeStyle(cnt)
+            const { a: arrivi = 0, p: partenze = 0 } = dayStats[s] || {}
             const isToday = s === todayStr
             const isSel = s === sel
             return (
@@ -208,24 +197,24 @@ export default function Calendario({ db }) {
                   gap: 3,
                 }}
               >
-                <div style={{
-                  fontSize: 13,
-                  fontWeight: isSel || isToday ? 700 : 500,
-                  color: isSel ? '#fff' : 'var(--navy)',
-                }}>
+                <div style={{ fontSize: 13, fontWeight: isSel || isToday ? 700 : 500, color: isSel ? '#fff' : 'var(--navy)' }}>
                   {day}
                 </div>
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  background: isSel ? 'rgba(255,255,255,.25)' : bs.bg,
-                  color: isSel ? '#fff' : bs.color,
-                  borderRadius: 4,
-                  padding: '1px 4px',
-                  lineHeight: 1.5,
-                  minWidth: 22,
-                }}>
-                  {cnt}
+                <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                  {arrivi > 0 && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, lineHeight: 1.5, padding: '0 3px', borderRadius: 3,
+                      background: isSel ? 'rgba(255,255,255,.25)' : '#dcfce7',
+                      color: isSel ? '#fff' : '#15803d',
+                    }}>▶{arrivi}</span>
+                  )}
+                  {partenze > 0 && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, lineHeight: 1.5, padding: '0 3px', borderRadius: 3,
+                      background: isSel ? 'rgba(255,255,255,.25)' : '#fef3c7',
+                      color: isSel ? '#fff' : '#b45309',
+                    }}>◀{partenze}</span>
+                  )}
                 </div>
               </div>
             )
