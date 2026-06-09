@@ -22,7 +22,6 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
     const base = {
       postazione_id: '',
       cliente_nome:  '',
-      dotazione:     '2lettini',
       temporanea:    false,
       data_inizio:   initialDataInizio || today(),
       data_fine:     initialDataFine   || '',
@@ -33,10 +32,10 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
       prezzo_totale: '',
     }
     if (!initialPostId) return base
-    const pos      = postazioni.find(p => p.id === initialPostId)
+    const pos = postazioni.find(p => p.id === initialPostId)
     const defaults = pos?.tipo === 'palma'
-      ? { dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }
-      : { dotazione: '2lettini',         lettini: 2, sdraio: 0, regista: 0 }
+      ? { lettini: 3, sdraio: 0, regista: 1 }
+      : { lettini: 2, sdraio: 0, regista: 0 }
     return { ...base, postazione_id: initialPostId, ...defaults }
   })
 
@@ -75,27 +74,7 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
     }
   }
 
-  function handlePostazioneChange(id) {
-    const pos      = postazioni.find(p => p.id === id)
-    const defaults = !pos ? {}
-      : pos.tipo === 'palma'
-        ? { dotazione: '3lettini_regista', lettini: 3, sdraio: 0, regista: 1 }
-        : { dotazione: '2lettini',         lettini: 2, sdraio: 0, regista: 0 }
-    setForm(f => ({ ...f, postazione_id: id, ...defaults }))
-  }
-
-  function handleDotazione(dot) {
-    const map = {
-      '2lettini':         { lettini: 2, sdraio: 0, regista: 0 },
-      'lettino_sdraio':   { lettini: 1, sdraio: 1, regista: 0 },
-      'lettino_regista':  { lettini: 1, sdraio: 0, regista: 1 },
-      '3lettini_regista': { lettini: 3, sdraio: 0, regista: 1 },
-    }
-    setForm(f => ({ ...f, dotazione: dot, ...(map[dot] || {}) }))
-  }
-
-  // Rileva conflitto di date per la postazione selezionata
-  // Esclude la riga "disponibile" che stiamo per sostituire con il subaffitto
+  // Rileva conflitto di date — esclude la riga disponibile che stiamo sostituendo e le stagionali
   const conflict = (() => {
     if (!form.postazione_id || !form.data_inizio || !form.data_fine) return null
     const pos = postazioni.find(p => p.id === form.postazione_id)
@@ -111,7 +90,7 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
   })()
 
   async function handleSalva() {
-    if (!form.postazione_id)      { showToast('Seleziona una postazione', 'error'); return }
+    if (!form.postazione_id)       { showToast('Seleziona una postazione', 'error'); return }
     if (!form.cliente_nome.trim()) { showToast('Inserisci il nome del cliente', 'error'); return }
     if (!form.data_inizio || !form.data_fine) { showToast('Date obbligatorie', 'error'); return }
     if (form.data_fine < form.data_inizio)    { showToast('Data fine deve essere ≥ data inizio', 'error'); return }
@@ -124,8 +103,6 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
 
-      // Se è un subaffitto: elimina la riga "disponibile" e salva come subaffitto.
-      // Se il subaffitto copre solo parte del periodo disponibile, ricrea le fette residue.
       if (subaffittoRow) {
         const { error: delErr } = await supabase.from('occupazioni').delete().eq('id', subaffittoRow.id)
         if (delErr) throw delErr
@@ -178,8 +155,8 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
       if (onReload) onReload()
       setStagionale(false)
       setForm({
-        postazione_id: '', cliente_nome: '', dotazione: '2lettini',
-        temporanea: false, data_inizio: today(), data_fine: '', note: '',
+        postazione_id: '', cliente_nome: '', temporanea: false,
+        data_inizio: today(), data_fine: '', note: '',
         lettini: 2, sdraio: 0, regista: 0, prezzo_totale: '',
       })
       setCercaCliente('')
@@ -213,54 +190,58 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
         {subaffittoRow && (
           <div style={{ background: '#f5f0ff', border: '1.5px solid #c4b5fd', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4 }}>🟣 Prenotazione subaffitto</div>
-            <div style={{ fontSize: 13, color: 'var(--navy)' }}>
-              Stagionale: <strong>{subaffittoRow.cliente}</strong>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              {fmtDate(subaffittoRow.data_inizio)} → {fmtDate(subaffittoRow.data_fine)}
-            </div>
+            <div style={{ fontSize: 13, color: 'var(--navy)' }}>Stagionale: <strong>{subaffittoRow.cliente}</strong></div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{fmtDate(subaffittoRow.data_inizio)} → {fmtDate(subaffittoRow.data_fine)}</div>
             <div style={{ fontSize: 12, color: '#7c3aed', marginTop: 4 }}>Il cliente che inserisci diventerà il subaffittuario — la postazione apparirà viola in mappa.</div>
           </div>
         )}
 
-        {/* POSTAZIONE */}
-        <div className="form-group" style={{ marginBottom: 16 }}>
-          <label>Postazione</label>
-          <select
-            value={form.postazione_id}
-            onChange={e => handlePostazioneChange(e.target.value)}
-            style={{ fontSize: 15, padding: '12px 14px' }}
-          >
-            <option value="">Seleziona postazione...</option>
-            <optgroup label="🌴 Palme">
-              {palme.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
-            </optgroup>
-            <optgroup label="☂ Ombrelloni — Sett. A">
-              {ombrA.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
-            </optgroup>
-            <optgroup label="☂ Ombrelloni — Sett. B">
-              {ombrB.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
-            </optgroup>
-          </select>
-        </div>
-
-        {/* Info postazione */}
-        {postazioneSelezionata && (
-          <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, border: '1px solid #dde8ff', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ color: 'var(--navy)' }}>
-              {postazioneSelezionata.tipo === 'palma' ? '🌴 Palma' : '☂ Ombrellone'} {postazioneSelezionata.numero}
-            </strong>
-            <span style={{ color: 'var(--muted)' }}>
-              F{postazioneSelezionata.fila}{postazioneSelezionata.settore && ` · S.${postazioneSelezionata.settore}`}
-            </span>
-            {postazioneSelezionata.stato !== 'libero' && (
-              <span className="badge badge-red" style={{ fontSize: 11 }}>occupata oggi</span>
-            )}
+        {/* POSTAZIONE — dropdown solo se non pre-selezionata dalla mappa */}
+        {!initialPostId ? (
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label>Postazione</label>
+            <select
+              value={form.postazione_id}
+              onChange={e => {
+                const pos = postazioni.find(p => p.id === e.target.value)
+                const defaults = !pos ? {}
+                  : pos.tipo === 'palma'
+                    ? { lettini: 3, sdraio: 0, regista: 1 }
+                    : { lettini: 2, sdraio: 0, regista: 0 }
+                setForm(f => ({ ...f, postazione_id: e.target.value, ...defaults }))
+              }}
+              style={{ fontSize: 15, padding: '12px 14px' }}
+            >
+              <option value="">Seleziona postazione...</option>
+              <optgroup label="🌴 Palme">
+                {palme.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
+              </optgroup>
+              <optgroup label="☂ Ombrelloni — Sett. A">
+                {ombrA.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
+              </optgroup>
+              <optgroup label="☂ Ombrelloni — Sett. B">
+                {ombrB.map(p => <option key={p.id} value={p.id}>{postazioneLabel(p)}</option>)}
+              </optgroup>
+            </select>
           </div>
+        ) : (
+          postazioneSelezionata && (
+            <div style={{ background: '#f0f4ff', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 14, border: '1px solid #dde8ff', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 22 }}>{postazioneSelezionata.tipo === 'palma' ? '🌴' : '☂'}</span>
+              <div>
+                <div style={{ fontWeight: 700, color: 'var(--navy)' }}>
+                  {postazioneSelezionata.tipo === 'palma' ? 'Palma' : 'Ombrellone'} {postazioneSelezionata.numero}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Fila {postazioneSelezionata.fila}{postazioneSelezionata.settore && ` · Settore ${postazioneSelezionata.settore}`}
+                </div>
+              </div>
+            </div>
+          )
         )}
 
-        {/* TOGGLE STAGIONALE — nascosto in contesto subaffitto */}
-        {!subaffittoRow && (
+        {/* TOGGLE STAGIONALE — nascosto in contesto subaffitto o con post pre-selezionata */}
+        {!subaffittoRow && !initialPostId && (
           <div
             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: stagionale ? '#e8f0ff' : '#f0f4ff', borderRadius: 10, border: `1.5px solid ${stagionale ? '#4a80e8' : '#dde8ff'}`, marginBottom: 14, cursor: 'pointer' }}
             onClick={() => handleStagionale(!stagionale)}
@@ -277,7 +258,7 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
           </div>
         )}
 
-        {/* DATE — mostrate solo se non stagionale */}
+        {/* DATE */}
         {!stagionale && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -325,25 +306,8 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
           )}
         </div>
 
-        {/* DOTAZIONE */}
-        <div className="form-group" style={{ marginBottom: 16 }}>
-          <label>Dotazione</label>
-          <div className="dotazione-grid">
-            {[
-              { val: '2lettini',         label: '2 Lettini' },
-              { val: 'lettino_sdraio',   label: '1 Lettino + 1 Sdraio' },
-              { val: 'lettino_regista',  label: '1 Lettino + 1 Regista' },
-              { val: '3lettini_regista', label: '3 Lettini + Regista' },
-            ].map(d => (
-              <button key={d.val} className={`dotazione-btn${form.dotazione === d.val ? ' active' : ''}`} onClick={() => handleDotazione(d.val)}>
-                {d.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* STEPPER ATTREZZATURA */}
-        <div className="stepper-grid">
+        {/* ATTREZZATURA — solo stepper */}
+        <div className="stepper-grid" style={{ marginBottom: 16 }}>
           {[
             { label: 'Lettini 🛏', key: 'lettini' },
             { label: 'Sdraio 🪑',  key: 'sdraio' },
@@ -374,22 +338,23 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
           </div>
         </div>
 
-        {/* TEMPORANEA — disabilitata se stagionale */}
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: stagionale ? '#f5f5f5' : '#fffde7', borderRadius: 10, border: `1.5px solid ${stagionale ? '#ddd' : '#ffe082'}`, marginBottom: 20, cursor: stagionale ? 'not-allowed' : 'pointer', opacity: stagionale ? .5 : 1 }}
-          onClick={() => !stagionale && set('temporanea', !form.temporanea)}
-        >
-          <input type="checkbox" checked={form.temporanea}
-            onChange={e => !stagionale && set('temporanea', e.target.checked)}
-            onClick={e => e.stopPropagation()}
-            disabled={stagionale}
-            style={{ width: 20, height: 20, cursor: stagionale ? 'not-allowed' : 'pointer', accentColor: '#f0c030', flexShrink: 0 }}
-          />
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>⏳ Prenotazione temporanea</div>
-            <div style={{ fontSize: 12, color: '#b8860b', marginTop: 2 }}>Apparirà in giallo sulla mappa</div>
+        {/* TEMPORANEA */}
+        {!stagionale && (
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fffde7', borderRadius: 10, border: '1.5px solid #ffe082', marginBottom: 20, cursor: 'pointer' }}
+            onClick={() => set('temporanea', !form.temporanea)}
+          >
+            <input type="checkbox" checked={form.temporanea}
+              onChange={e => set('temporanea', e.target.checked)}
+              onClick={e => e.stopPropagation()}
+              style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#f0c030', flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>⏳ Prenotazione temporanea</div>
+              <div style={{ fontSize: 12, color: '#b8860b', marginTop: 2 }}>Apparirà in giallo sulla mappa</div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* NOTE */}
         <div className="form-group" style={{ marginBottom: 20 }}>
