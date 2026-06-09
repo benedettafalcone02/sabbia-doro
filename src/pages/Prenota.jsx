@@ -169,15 +169,22 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
 
   if (loading) return <LoadingScreen />
 
-  const palme = postazioni.filter(p => p.tipo === 'palma').sort((a, b) => a.numero - b.numero)
-  const ombrA = postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'A').sort((a, b) => a.numero - b.numero)
-  const ombrB = postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'B').sort((a, b) => a.numero - b.numero)
+  // Solo postazioni prenotabili: libere oppure disponibili per subaffitto
+  const SUB_DISP = new Set(['disponibile', 'subaffitto_disponibile'])
+  function isPrenotabile(p) {
+    return p.stato === 'libero' || SUB_DISP.has(p.tipo_occupazione)
+  }
+
+  const palme = postazioni.filter(p => p.tipo === 'palma' && isPrenotabile(p)).sort((a, b) => a.numero - b.numero)
+  const ombrA = postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'A' && isPrenotabile(p)).sort((a, b) => a.numero - b.numero)
+  const ombrB = postazioni.filter(p => p.tipo === 'ombrellone' && p.settore === 'B' && isPrenotabile(p)).sort((a, b) => a.numero - b.numero)
 
   function postazioneLabel(p) {
     const base = p.tipo === 'palma'
       ? `🌴 Palma ${p.numero} — F${p.fila}`
       : `☂ Ombr. ${p.numero} S.${p.settore} F${p.fila}`
-    return p.stato !== 'libero' ? `${base} (occ. oggi)` : base
+    if (SUB_DISP.has(p.tipo_occupazione)) return `${base} · 🔵 sub. disponibile`
+    return base
   }
 
   return (
