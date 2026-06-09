@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import LoadingScreen from '../components/LoadingScreen'
+import WaBtnLink from '../components/WaBtnLink'
 import { fmtEur } from '../lib/data'
 
 const WEEKDAYS = ['L', 'M', 'M', 'G', 'V', 'S', 'D']
@@ -17,16 +18,62 @@ function fmtShort(s) {
   const [, mm, dd] = s.split('-')
   return `${dd}/${mm}`
 }
-function waLink(tel) {
-  if (!tel) return null
-  const n = String(tel).replace(/\D/g, '')
-  return `https://wa.me/${n.startsWith('39') ? n : '39' + n}`
-}
 function badgeStyle(n) {
   if (!n) return { bg: '#f3f4f6', color: '#9ca3af' }
   if (n < 100) return { bg: '#dcfce7', color: '#15803d' }
   if (n < 200) return { bg: '#fef3c7', color: '#b45309' }
   return { bg: '#fee2e2', color: '#dc2626' }
+}
+
+function PrenotaCard({ o }) {
+  const isSub = o.tipo_occupazione === 'subaffitto'
+  const nomeDisplay = isSub ? (o.subaffittuario || o.cliente) : o.cliente
+  const equip = [
+    o.lettini  && `${o.lettini}L`,
+    o.sdraio   && `${o.sdraio}S`,
+    o.regista  && `${o.regista}R`,
+  ].filter(Boolean).join(' ')
+
+  return (
+    <div className="card" style={{
+      padding: '10px 12px',
+      borderLeft: `4px solid ${isSub ? '#7c3aed' : 'var(--navy)'}`,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
+            {o.tipo === 'palma' ? '🌴' : '☂'} {o.tipo === 'palma' ? 'P' : 'O'}·{o.numero}
+          </span>
+          {isSub && <span className="badge badge-purple" style={{ fontSize: 10 }}>Sub</span>}
+        </div>
+        <WaBtnLink tel={o.telefono} size={32} />
+      </div>
+
+      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy)', marginBottom: 3 }}>
+        {nomeDisplay || '—'}
+      </div>
+
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: o.prezzo_totale != null ? 6 : 0 }}>
+        {fmtShort(o.data_inizio)} → {fmtShort(o.data_fine)}
+        {equip ? ` · ${equip}` : ''}
+      </div>
+
+      {o.prezzo_totale != null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Totale: {fmtEur(o.prezzo_totale)}</span>
+          {o.saldo > 0 ? (
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', borderRadius: 4, padding: '1px 6px' }}>
+              Da saldare: {fmtEur(o.saldo)}
+            </span>
+          ) : (
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d', background: '#dcfce7', borderRadius: 4, padding: '1px 6px' }}>
+              Pagato ✓
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Calendario({ db }) {
@@ -75,6 +122,11 @@ export default function Calendario({ db }) {
     if (!sel) return { list: [], arrivi: 0, partenze: 0, daSaldare: 0 }
 
     // Tutte le righe reali (no disponibile)
+    const sort = arr => [...arr].sort((a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === 'palma' ? -1 : 1
+      return Number(a.numero) - Number(b.numero)
+    })
+
     const mapped = (occupazioni || [])
       .filter(o => !EXCLUDE.has(o.tipo_occupazione) && o.data_inizio && o.data_fine)
       .map(o => {
@@ -84,28 +136,19 @@ export default function Calendario({ db }) {
         return { ...o, pagato, saldo }
       })
 
-    // Prenotazioni attive su questo giorno (per la lista)
-    const list = mapped
-      .filter(o => o.data_inizio <= sel && o.data_fine >= sel)
-      .sort((a, b) => {
-        if (a.tipo !== b.tipo) return a.tipo === 'palma' ? -1 : 1
-        return Number(a.numero) - Number(b.numero)
-      })
+    // Solo arrivi e partenze del giorno
+    const arriviList  = sort(mapped.filter(o => o.data_inizio === sel))
+    const partenzeList = sort(mapped.filter(o => o.data_fine === sel))
 
-    // Arrivi = prenotazioni che INIZIANO oggi
-    const arrivi = mapped.filter(o => o.data_inizio === sel).length
+    // Da saldare = subaffitti e temporanee che arrivano O partono oggi con saldo aperto
+    const ids = new Set()
+    const daSaldare = [...arriviList, ...partenzeList].filter(o => {
+      if (ids.has(o.id)) return false
+      ids.add(o.id)
+      return (o.tipo_occupazione === 'subaffitto' || o.temporanea) && o.saldo > 0
+    }).length
 
-    // Partenze = prenotazioni che FINISCONO oggi
-    const partenze = mapped.filter(o => o.data_fine === sel).length
-
-    // Da saldare = solo subaffitti e temporanee che arrivano O partono oggi con saldo aperto
-    const daSaldare = mapped.filter(o =>
-      (o.tipo_occupazione === 'subaffitto' || o.temporanea) &&
-      (o.data_inizio === sel || o.data_fine === sel) &&
-      o.saldo > 0
-    ).length
-
-    return { list, arrivi, partenze, daSaldare }
+    return { arriviList, partenzeList, arrivi: arriviList.length, partenze: partenzeList.length, daSaldare }
   }, [sel, occupazioni, pagamenti])
 
   if (loading) return <LoadingScreen />
@@ -208,89 +251,41 @@ export default function Calendario({ db }) {
           </div>
 
           {/* Day title */}
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', marginBottom: 10 }}>
-            {selLabel} · {detail.list.length} prenotazioni
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', marginBottom: 12 }}>
+            {selLabel}
           </div>
 
-          {detail.list.length === 0 ? (
+          {detail.arrivi === 0 && detail.partenze === 0 ? (
             <div className="empty-state">
               <span className="empty-state-icon">🏖</span>
-              <div className="empty-state-title">Nessuna prenotazione</div>
+              <div className="empty-state-title">Nessun movimento</div>
+              <div className="empty-state-sub">Nessun arrivo né partenza in questa data</div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
-              {detail.list.map(o => {
-                const isArrivo   = o.data_inizio === sel
-                const isPartenza = o.data_fine   === sel
-                const isSub      = o.tipo_occupazione === 'subaffitto'
-                const nomeDisplay = isSub ? (o.subaffittuario || o.cliente) : o.cliente
-                const wa = waLink(o.telefono)
-                const equip = [
-                  o.lettini  && `${o.lettini}L`,
-                  o.sdraio   && `${o.sdraio}S`,
-                  o.regista  && `${o.regista}R`,
-                ].filter(Boolean).join(' ')
-                return (
-                  <div key={o.id} className="card" style={{
-                    padding: '10px 12px',
-                    borderLeft: `4px solid ${isSub ? '#7c3aed' : 'var(--sky)'}`,
-                  }}>
-                    {/* Row 1: postazione + badges + WA */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>
-                          {o.tipo === 'palma' ? '🌴' : '☂'} {o.tipo === 'palma' ? 'P' : 'O'}·{o.numero}
-                        </span>
-                        {isSub && <span className="badge badge-purple" style={{ fontSize: 10 }}>Sub</span>}
-                        {isArrivo && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#15803d', background: '#dcfce7', borderRadius: 4, padding: '1px 5px' }}>
-                            Arrivo
-                          </span>
-                        )}
-                        {isPartenza && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fef3c7', borderRadius: 4, padding: '1px 5px' }}>
-                            Partenza
-                          </span>
-                        )}
-                      </div>
-                      {wa && (
-                        <a href={wa} target="_blank" rel="noreferrer" style={{ fontSize: 20, lineHeight: 1, textDecoration: 'none' }}>
-                          💬
-                        </a>
-                      )}
-                    </div>
-
-                    {/* Row 2: client name */}
-                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--navy)', marginBottom: 4 }}>
-                      {nomeDisplay || '—'}
-                    </div>
-
-                    {/* Row 3: dates + equipment */}
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: o.prezzo_totale != null ? 6 : 0 }}>
-                      {fmtShort(o.data_inizio)} → {fmtShort(o.data_fine)}
-                      {equip ? ` · ${equip}` : ''}
-                    </div>
-
-                    {/* Row 4: payment */}
-                    {o.prezzo_totale != null && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          Totale: {fmtEur(o.prezzo_totale)}
-                        </span>
-                        {o.saldo > 0 ? (
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fee2e2', borderRadius: 4, padding: '1px 6px' }}>
-                            Da saldare: {fmtEur(o.saldo)}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d', background: '#dcfce7', borderRadius: 4, padding: '1px 6px' }}>
-                            Pagato
-                          </span>
-                        )}
-                      </div>
-                    )}
+            <div style={{ paddingBottom: 24 }}>
+              {/* Arrivi */}
+              {detail.arriviList.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ background: '#dcfce7', borderRadius: 4, padding: '2px 7px' }}>▶ Arrivi ({detail.arriviList.length})</span>
                   </div>
-                )
-              })}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                    {detail.arriviList.map(o => <PrenotaCard key={o.id} o={o} sel={sel} />)}
+                  </div>
+                </>
+              )}
+
+              {/* Partenze */}
+              {detail.partenzeList.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ background: '#fef3c7', borderRadius: 4, padding: '2px 7px' }}>◀ Partenze ({detail.partenzeList.length})</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {detail.partenzeList.map(o => <PrenotaCard key={o.id} o={o} sel={sel} />)}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </>
