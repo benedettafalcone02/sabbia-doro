@@ -6,6 +6,7 @@ const initialDB = {
   postazioni:  generatePostazioni(),
   clienti:     [],
   occupazioni: [],
+  pagamenti:   [],
   richieste:   [],
   loading:     true,
 }
@@ -133,6 +134,7 @@ export function useStore(skip = false) {
         postazioni,
         clienti:     Object.values(clientiMap),
         occupazioni: allOcc,
+        pagamenti:   pagData,
         richieste:   richData,
         loading:     false,
       }

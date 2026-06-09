@@ -3,12 +3,13 @@ import styles from './Navbar.module.css'
 // mobileTab: true  → appears in the bottom tab bar on mobile
 // mobileTab: false → desktop nav only (use for low-frequency pages)
 const PAGES = [
-  { id: 'dashboard',     label: 'Home',     icon: '🏠', mobileTab: true  },
-  { id: 'disponibilita', label: 'Dispon.',  icon: '🔍', mobileTab: true  },
-  { id: 'prenota',       label: 'Prenota',  icon: '➕', mobileTab: true  },
-  { id: 'mappa',         label: 'Mappa',    icon: '🗺',  mobileTab: true  },
-  { id: 'clienti',       label: 'Clienti',  icon: '👤', mobileTab: true  },
-  { id: 'admin',         label: 'Gestione', icon: '⚙️', mobileTab: false },
+  { id: 'dashboard',     label: 'Home',       icon: '🏠', mobileTab: true  },
+  { id: 'calendario',    label: 'Calendario', icon: '📅', mobileTab: true  },
+  { id: 'prenota',       label: 'Prenota',    icon: '➕', mobileTab: true  },
+  { id: 'mappa',         label: 'Mappa',      icon: '🗺',  mobileTab: true  },
+  { id: 'clienti',       label: 'Clienti',    icon: '👤', mobileTab: true  },
+  { id: 'disponibilita', label: 'Dispon.',    icon: '🔍', mobileTab: false },
+  { id: 'admin',         label: 'Gestione',   icon: '⚙️', mobileTab: false },
 ]
 
 export default function Navbar({ activePage, onNavigate, onLogout, role }) {

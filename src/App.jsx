@@ -13,6 +13,7 @@ import Prenota             from './pages/Prenota'
 import Clienti             from './pages/Clienti'
 import NuovoCliente        from './pages/NuovoCliente'
 import Disponibilita       from './pages/Disponibilita'
+import Calendario          from './pages/Calendario'
 import Admin               from './pages/Admin'
 import PrenotazionePublica from './pages/PrenotazionePublica'
 import Toast               from './components/Toast'
@@ -76,6 +77,7 @@ export default function App() {
       {page === 'clienti'                  && <Clienti        db={db} onNavigate={isAdmin ? navigate : undefined} showToast={showToast} onReload={reload} role={role} />}
       {isAdmin && page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={navigate} />}
       {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} onNavigatePrenota={navigatePrenota} />}
+      {isAdmin && page === 'calendario'   && <Calendario     db={db} />}
       {isAdmin && page === 'admin'         && <Admin          onReload={reload} />}
 
       <Toast toast={toast} />
