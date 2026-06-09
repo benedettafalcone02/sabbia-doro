@@ -22,7 +22,7 @@ function fmtEur(v) {
 
 export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
   const isAdmin = role === 'admin'
-  const { clienti, postazioni, loading } = db
+  const { clienti, postazioni, occupazioni, loading } = db
 
   const [search, setSearch]           = useState('')
   const [selectedId, setSelectedId]   = useState(null)
@@ -80,6 +80,17 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
       regista: haRegista ? postazioniCliente.reduce((a, p) => a + (p.regista  || 0), 0) : null,
     }
   }, [postazioniCliente])
+
+  // Subaffitti disponibili del cliente (rows subaffitto_disponibile future o in corso)
+  const subAffitiDisp = useMemo(() => {
+    if (!selected) return []
+    const t = today()
+    return (occupazioni || []).filter(o =>
+      o.cliente && normalizeCliente(o.cliente) === normalizeCliente(selected.nome) &&
+      (o.tipo_occupazione === 'subaffitto_disponibile' || o.tipo_occupazione === 'disponibile') &&
+      o.data_fine >= t
+    ).sort((a, b) => a.data_inizio.localeCompare(b.data_inizio))
+  }, [selected, occupazioni])
 
   // Tutti i pagamenti di tutte le postazioni del cliente, ordinati per data
   const allPagamenti = useMemo(() => {
@@ -146,18 +157,33 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
 
   async function handleSaveEdit() {
     if (!editForm.nome.trim()) { showToast('Nome obbligatorio', 'error'); return }
+    const nomeUpper  = editForm.nome.trim().toUpperCase()
+    const nomeVecchio = selected.nome.trim().toUpperCase()
     const ids = postazioniCliente.map(p => p.occ_id).filter(Boolean)
-    if (ids.length === 0) { showToast('Postazioni non trovate', 'error'); return }
     setSaving(true)
     try {
-      const { error } = await supabase.from('occupazioni')
+      // telefono/email/note/nome su TUTTE le occupazioni del cliente (anche future)
+      const { error: e1 } = await supabase.from('occupazioni')
         .update({
-          cliente:       editForm.nome.trim().toUpperCase(),
-          acconto:       editForm.acconto       ? parseFloat(editForm.acconto)       : null,
-          prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
+          cliente:  nomeUpper,
+          telefono: editForm.telefono.trim() || null,
+          email:    editForm.email.trim()    || null,
+          note:     editForm.note.trim()     || null,
         })
-        .in('id', ids)
-      if (error) throw error
+        .eq('cliente', nomeVecchio)
+      if (e1) throw e1
+
+      // acconto/prezzo_totale solo sulle occupazioni attive oggi (se presenti)
+      if (ids.length > 0) {
+        const { error: e2 } = await supabase.from('occupazioni')
+          .update({
+            acconto:       editForm.acconto       ? parseFloat(editForm.acconto)       : null,
+            prezzo_totale: editForm.prezzo_totale ? parseFloat(editForm.prezzo_totale) : null,
+          })
+          .in('id', ids)
+        if (e2) throw e2
+      }
+
       showToast('Cliente aggiornato ✓')
       if (onReload) onReload()
       closeModal()
@@ -169,11 +195,10 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
   }
 
   async function handleDelete() {
-    const ids = postazioniCliente.map(p => p.occ_id).filter(Boolean)
-    if (ids.length === 0) { showToast('Postazioni non trovate', 'error'); return }
     setSaving(true)
     try {
-      const { error } = await supabase.from('occupazioni').delete().in('id', ids)
+      const { error } = await supabase.from('occupazioni')
+        .delete().eq('cliente', selected.nome.trim().toUpperCase())
       if (error) throw error
       showToast(`${selected.nome} eliminato ✓`)
       if (onReload) onReload()
@@ -580,6 +605,37 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                 )
               })}
             </div>
+
+            {/* Subaffitto disponibile */}
+            {subAffitiDisp.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
+                  🔵 Disponibile per subaffitto ({subAffitiDisp.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {subAffitiDisp.map(o => {
+                    const pos = postazioni.find(p => p.tipo === o.tipo && Number(p.numero) === Number(o.numero))
+                    return (
+                      <div key={o.id} style={{ background: '#f0f9ff', borderRadius: 8, padding: '10px 12px', border: '1px solid #bae6fd' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 13 }}>
+                            {o.tipo === 'palma' ? '🌴 Palma' : '☂ Ombrellone'} {o.numero}
+                            {pos?.settore ? ` S.${pos.settore}` : ''}
+                          </div>
+                          <span className="badge badge-sky" style={{ fontSize: 10, flexShrink: 0 }}>Subaffitto</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600, marginTop: 4 }}>
+                          {fmtDate(o.data_inizio)} → {fmtDate(o.data_fine)}
+                        </div>
+                        {o.note && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontStyle: 'italic' }}>📝 {o.note}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Bottone pagamenti */}
             {isAdmin && (

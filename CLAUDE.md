@@ -42,16 +42,18 @@ Single source of truth. On mount it fetches all rows from the Supabase `occupazi
 
 ### Database
 
-Single Supabase table: **`occupazioni`** with a unique constraint on `(tipo, numero)`.
+Single Supabase table: **`occupazioni`**. Multiple rows per `(tipo, numero)` are allowed — the unique constraint on that pair was dropped to support subaffitti and disponibilità sovrapposti alla prenotazione stagionale.
 
 | column | type | notes |
 |--------|------|-------|
 | tipo | text | `'palma'` or `'ombrellone'` |
 | numero | integer | spot number within its type |
 | cliente | text | name stored in uppercase |
+| tipo_occupazione | text | `'stagionale'`, `'subaffitto'`, `'subaffitto_disponibile'` |
+| data_inizio / data_fine | date | mandatory; used to pick the active booking for today |
 | lettini / sdraio / regista | integer | equipment counts |
 
-Writes use `.upsert({ onConflict: 'tipo,numero' })` so re-booking an occupied spot updates in place.
+`useStore` groups all rows by `(tipo, numero)`, picks the one active today (subaffitto/disponibile take priority over stagionale), and builds a `prenotazioni` array with all future bookings for the timeline view.
 
 ### Postazione numbering
 

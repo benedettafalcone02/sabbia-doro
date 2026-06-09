@@ -3,14 +3,20 @@ import { supabase } from '../lib/supabase'
 import { today, fmtEur } from '../lib/data'
 import LoadingScreen from '../components/LoadingScreen'
 
+const STAGIONE_INIZIO = '2026-06-01'
+const STAGIONE_FINE   = '2026-09-30'
+
 function fmtDate(d) {
   if (!d) return '—'
   const [y, m, g] = d.split('-')
   return `${g}/${m}/${y}`
 }
 
-export default function Prenota({ db, showToast, onReload, initialPostId }) {
+export default function Prenota({ db, showToast, onReload, initialPostId, initialDataInizio, initialDataFine }) {
   const { postazioni, clienti, occupazioni, loading } = db
+
+  const isStagionale = initialDataInizio === STAGIONE_INIZIO && initialDataFine === STAGIONE_FINE
+  const [stagionale, setStagionale] = useState(isStagionale)
 
   const [form, setForm] = useState(() => {
     const base = {
@@ -18,8 +24,8 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
       cliente_nome:  '',
       dotazione:     '2lettini',
       temporanea:    false,
-      data_inizio:   today(),
-      data_fine:     '',
+      data_inizio:   initialDataInizio || today(),
+      data_fine:     initialDataFine   || '',
       note:          '',
       lettini:       2,
       sdraio:        0,
@@ -45,6 +51,15 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
     : []
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  function handleStagionale(val) {
+    setStagionale(val)
+    if (val) {
+      setForm(f => ({ ...f, data_inizio: STAGIONE_INIZIO, data_fine: STAGIONE_FINE, temporanea: false }))
+    } else {
+      setForm(f => ({ ...f, data_inizio: today(), data_fine: '' }))
+    }
+  }
 
   function handlePostazioneChange(id) {
     const pos      = postazioni.find(p => p.id === id)
@@ -108,6 +123,7 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
 
       showToast('Prenotazione salvata ✓')
       if (onReload) onReload()
+      setStagionale(false)
       setForm({
         postazione_id: '', cliente_nome: '', dotazione: '2lettini',
         temporanea: false, data_inizio: today(), data_fine: '', note: '',
@@ -176,21 +192,39 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
           </div>
         )}
 
-        {/* DATE — sempre obbligatorie */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Data inizio *</label>
-            <input type="date" value={form.data_inizio}
-              onChange={e => set('data_inizio', e.target.value)}
-              style={{ fontSize: 14 }} />
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Data fine *</label>
-            <input type="date" value={form.data_fine} min={form.data_inizio}
-              onChange={e => set('data_fine', e.target.value)}
-              style={{ fontSize: 14 }} />
+        {/* TOGGLE STAGIONALE */}
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: stagionale ? '#e8f0ff' : '#f0f4ff', borderRadius: 10, border: `1.5px solid ${stagionale ? '#4a80e8' : '#dde8ff'}`, marginBottom: 14, cursor: 'pointer' }}
+          onClick={() => handleStagionale(!stagionale)}
+        >
+          <input type="checkbox" checked={stagionale}
+            onChange={e => handleStagionale(e.target.checked)}
+            onClick={e => e.stopPropagation()}
+            style={{ width: 20, height: 20, cursor: 'pointer', accentColor: 'var(--navy)', flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>📅 Prenotazione stagionale</div>
+            <div style={{ fontSize: 12, color: '#5a7bc7', marginTop: 2 }}>{fmtDate(STAGIONE_INIZIO)} → {fmtDate(STAGIONE_FINE)}</div>
           </div>
         </div>
+
+        {/* DATE — mostrate solo se non stagionale */}
+        {!stagionale && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Data inizio *</label>
+              <input type="date" value={form.data_inizio}
+                onChange={e => set('data_inizio', e.target.value)}
+                style={{ fontSize: 14 }} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Data fine *</label>
+              <input type="date" value={form.data_fine} min={form.data_inizio}
+                onChange={e => set('data_fine', e.target.value)}
+                style={{ fontSize: 14 }} />
+            </div>
+          </div>
+        )}
 
         {/* Avviso conflitto */}
         {conflict && (
@@ -271,15 +305,16 @@ export default function Prenota({ db, showToast, onReload, initialPostId }) {
           </div>
         </div>
 
-        {/* TEMPORANEA */}
+        {/* TEMPORANEA — disabilitata se stagionale */}
         <div
-          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fffde7', borderRadius: 10, border: '1.5px solid #ffe082', marginBottom: 20, cursor: 'pointer' }}
-          onClick={() => set('temporanea', !form.temporanea)}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: stagionale ? '#f5f5f5' : '#fffde7', borderRadius: 10, border: `1.5px solid ${stagionale ? '#ddd' : '#ffe082'}`, marginBottom: 20, cursor: stagionale ? 'not-allowed' : 'pointer', opacity: stagionale ? .5 : 1 }}
+          onClick={() => !stagionale && set('temporanea', !form.temporanea)}
         >
           <input type="checkbox" checked={form.temporanea}
-            onChange={e => set('temporanea', e.target.checked)}
+            onChange={e => !stagionale && set('temporanea', e.target.checked)}
             onClick={e => e.stopPropagation()}
-            style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#f0c030', flexShrink: 0 }}
+            disabled={stagionale}
+            style={{ width: 20, height: 20, cursor: stagionale ? 'not-allowed' : 'pointer', accentColor: '#f0c030', flexShrink: 0 }}
           />
           <div>
             <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 15 }}>⏳ Prenotazione temporanea</div>

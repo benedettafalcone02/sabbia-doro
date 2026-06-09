@@ -5,33 +5,48 @@ import { useStore }     from './hooks/useStore'
 import { useToast }     from './hooks/useToast'
 import { isConfigured } from './lib/supabase'
 
-import Login         from './pages/Login'
-import Navbar        from './components/Navbar'
-import Dashboard     from './pages/Dashboard'
-import Mappa         from './pages/Mappa'
-import Prenota       from './pages/Prenota'
-import Clienti       from './pages/Clienti'
-import NuovoCliente  from './pages/NuovoCliente'
-import Disponibilita from './pages/Disponibilita'
-import Admin         from './pages/Admin'
-import Toast         from './components/Toast'
+import Login               from './pages/Login'
+import Navbar              from './components/Navbar'
+import Dashboard           from './pages/Dashboard'
+import Mappa               from './pages/Mappa'
+import Prenota             from './pages/Prenota'
+import Clienti             from './pages/Clienti'
+import NuovoCliente        from './pages/NuovoCliente'
+import Disponibilita       from './pages/Disponibilita'
+import Admin               from './pages/Admin'
+import PrenotazionePublica from './pages/PrenotazionePublica'
+import Toast               from './components/Toast'
 
 export default function App() {
-  const [role, setRole]           = useState(null)
-  const [page, setPage]           = useState('dashboard')
+  const isPublicRoute = window.location.pathname === '/prenota'
+
+  const [role, setRole]                   = useState(null)
+  const [page, setPage]                   = useState('dashboard')
   const [prenotaPostId, setPrenotaPostId] = useState(null)
-  const { db, reload }            = useStore()
+  const [prenotaDateInizio, setPrenotaDateInizio] = useState(null)
+  const [prenotaDateFine,   setPrenotaDateFine]   = useState(null)
+  const { db, reload }            = useStore(isPublicRoute)
   const { toast, showToast }      = useToast()
 
-  function navigatePrenota(postId) {
+  function navigatePrenota(postId, dataInizio = null, dataFine = null) {
     setPrenotaPostId(postId)
+    setPrenotaDateInizio(dataInizio)
+    setPrenotaDateFine(dataFine)
     setPage('prenota')
   }
 
   function navigate(p) {
-    if (p !== 'prenota') setPrenotaPostId(null)
+    if (p !== 'prenota') { setPrenotaPostId(null); setPrenotaDateInizio(null); setPrenotaDateFine(null) }
     setPage(p)
   }
+
+  // Pagina pubblica — senza login
+  if (isPublicRoute) return (
+    <>
+      <PrenotazionePublica showToast={showToast} />
+      <Toast toast={toast} />
+    </>
+  )
 
   // Guards after all hooks (Rules of Hooks requires unconditional hook calls)
   if (!isConfigured) return (
@@ -55,12 +70,12 @@ export default function App() {
     <>
       <Navbar activePage={page} onNavigate={navigate} onLogout={() => { setRole(null); setPage('dashboard') }} role={role} />
 
-      {isAdmin && page === 'dashboard'     && <Dashboard     db={db} onNavigate={navigate} />}
+      {isAdmin && page === 'dashboard'     && <Dashboard     db={db} onNavigate={navigate} showToast={showToast} onReload={reload} />}
       {page === 'mappa'                    && <Mappa          db={db} onNavigate={navigate} onNavigatePrenota={navigatePrenota} showToast={showToast} onReload={reload} role={role} />}
-      {isAdmin && page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} initialPostId={prenotaPostId} />}
+      {isAdmin && page === 'prenota'       && <Prenota        db={db} showToast={showToast} onReload={reload} initialPostId={prenotaPostId} initialDataInizio={prenotaDateInizio} initialDataFine={prenotaDateFine} />}
       {page === 'clienti'                  && <Clienti        db={db} onNavigate={isAdmin ? navigate : undefined} showToast={showToast} onReload={reload} role={role} />}
       {isAdmin && page === 'nuovo-cliente' && <NuovoCliente   db={db} showToast={showToast} onReload={reload} onNavigate={navigate} />}
-      {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} />}
+      {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} onNavigatePrenota={navigatePrenota} />}
       {isAdmin && page === 'admin'         && <Admin          onReload={reload} />}
 
       <Toast toast={toast} />
