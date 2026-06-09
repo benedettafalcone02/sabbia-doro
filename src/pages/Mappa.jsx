@@ -280,8 +280,15 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
     if (filtro === 'liberi')       return p.stato === 'libero'
     if (filtro === 'occupati')     return p.stato !== 'libero'
     if (filtro === 'temporanee')   return !!p.temporanea
-    if (filtro === 'subaffitti')   return p.tipo_occupazione === 'subaffitto'
-    if (filtro === 'disponibili')  return p.tipo_occupazione === 'disponibile'
+    if (filtro === 'subaffitti')  return (occupazioni || []).some(o =>
+      o.tipo === p.tipo && Number(o.numero) === Number(p.numero) &&
+      o.tipo_occupazione === 'subaffitto' && o.data_fine >= today()
+    )
+    if (filtro === 'disponibili') return (occupazioni || []).some(o =>
+      o.tipo === p.tipo && Number(o.numero) === Number(p.numero) &&
+      (o.tipo_occupazione === 'disponibile' || o.tipo_occupazione === 'subaffitto_disponibile') &&
+      o.data_fine >= today()
+    )
     return true
   }, [filtro, filterActive, filterDateInizio, filterDateFine, occupazioni])
 
