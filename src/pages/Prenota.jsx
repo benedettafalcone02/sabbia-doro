@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { today, fmtEur } from '../lib/data'
+import { today, fmtEur, addDays } from '../lib/data'
 import LoadingScreen from '../components/LoadingScreen'
 
 const STAGIONE_INIZIO = '2026-06-01'
@@ -124,10 +124,37 @@ export default function Prenota({ db, showToast, onReload, initialPostId, initia
     try {
       const pos = postazioni.find(p => p.id === form.postazione_id)
 
-      // Se è un subaffitto: elimina la riga "disponibile" e salva come subaffitto
+      // Se è un subaffitto: elimina la riga "disponibile" e salva come subaffitto.
+      // Se il subaffitto copre solo parte del periodo disponibile, ricrea le fette residue.
       if (subaffittoRow) {
         const { error: delErr } = await supabase.from('occupazioni').delete().eq('id', subaffittoRow.id)
         if (delErr) throw delErr
+
+        const residui = []
+        if (form.data_inizio > subaffittoRow.data_inizio) {
+          residui.push({
+            tipo: pos.tipo, numero: pos.numero, cliente: subaffittoRow.cliente,
+            tipo_occupazione: 'disponibile',
+            data_inizio: subaffittoRow.data_inizio,
+            data_fine:   addDays(form.data_inizio, -1),
+            note: subaffittoRow.note || null,
+            lettini: 0, sdraio: 0, regista: 0,
+          })
+        }
+        if (form.data_fine < subaffittoRow.data_fine) {
+          residui.push({
+            tipo: pos.tipo, numero: pos.numero, cliente: subaffittoRow.cliente,
+            tipo_occupazione: 'disponibile',
+            data_inizio: addDays(form.data_fine, 1),
+            data_fine:   subaffittoRow.data_fine,
+            note: subaffittoRow.note || null,
+            lettini: 0, sdraio: 0, regista: 0,
+          })
+        }
+        if (residui.length > 0) {
+          const { error: resErr } = await supabase.from('occupazioni').insert(residui)
+          if (resErr) throw resErr
+        }
       }
 
       const { error } = await supabase.from('occupazioni').insert({

@@ -38,3 +38,9 @@ export function today() {
 export function tomorrow() {
   return new Date(Date.now() + 86400000).toISOString().split('T')[0]
 }
+
+export function addDays(dateStr, n) {
+  const d = new Date(dateStr)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().split('T')[0]
+}

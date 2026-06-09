@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, Fragment } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
 import LoadingScreen from '../components/LoadingScreen'
-import { fmtEur, today } from '../lib/data'
+import { fmtEur, today, addDays } from '../lib/data'
 import styles from './Mappa.module.css'
 
 const FILTRI = [
@@ -193,10 +193,36 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
     if (!post) return
     setSaving(true)
     try {
-      // Se stiamo confermando su una riga "disponibile", eliminala prima
+      // Se stiamo confermando su una riga "disponibile", eliminala e ricrea le fette residue
       if ((post.tipo_occupazione === 'disponibile' || post.tipo_occupazione === 'subaffitto_disponibile') && post.occ_id) {
         const { error: delErr } = await supabase.from('occupazioni').delete().eq('id', post.occ_id)
         if (delErr) throw delErr
+
+        const residui = []
+        if (subForm.data_inizio > post.data_inizio) {
+          residui.push({
+            tipo: post.tipo, numero: post.numero, cliente: post.cliente,
+            tipo_occupazione: 'disponibile',
+            data_inizio: post.data_inizio,
+            data_fine:   addDays(subForm.data_inizio, -1),
+            note: post.note || null,
+            lettini: 0, sdraio: 0, regista: 0,
+          })
+        }
+        if (subForm.data_fine < post.data_fine) {
+          residui.push({
+            tipo: post.tipo, numero: post.numero, cliente: post.cliente,
+            tipo_occupazione: 'disponibile',
+            data_inizio: addDays(subForm.data_fine, 1),
+            data_fine:   post.data_fine,
+            note: post.note || null,
+            lettini: 0, sdraio: 0, regista: 0,
+          })
+        }
+        if (residui.length > 0) {
+          const { error: resErr } = await supabase.from('occupazioni').insert(residui)
+          if (resErr) throw resErr
+        }
       }
       const { error } = await supabase.from('occupazioni').insert({
         tipo:             post.tipo,
