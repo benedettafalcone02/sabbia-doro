@@ -712,7 +712,6 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
 
             {/* Timeline prenotazioni — con modifica/elimina per singola */}
             {!pagMode && !confirmLibera && !editPren && !subForm && !dispForm && !confirmAnnulla &&
-             selPost.tipo_occupazione !== 'subaffitto' && selPost.tipo_occupazione !== 'disponibile' &&
              selPost.prenotazioni?.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
@@ -748,9 +747,13 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                       <div style={{ display: 'flex', alignItems: 'center', padding: '8px 10px', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                            {pr.cliente || '—'}
+                            {pr.tipo_occupazione === 'subaffitto'
+                              ? (pr.subaffittuario || pr.cliente || '—')
+                              : (pr.cliente || '—')}
                             {pr.id === selPost.occ_id && <span style={{ fontSize: 10, color: 'var(--sky)', fontWeight: 600 }}>● oggi</span>}
                             {pr.temporanea && <span className="badge badge-yellow" style={{ fontSize: 10 }}>temp</span>}
+                            {pr.tipo_occupazione === 'subaffitto' && <span className="badge badge-purple" style={{ fontSize: 10 }}>subaffitto</span>}
+                            {(pr.tipo_occupazione === 'disponibile' || pr.tipo_occupazione === 'subaffitto_disponibile') && <span className="badge badge-sky" style={{ fontSize: 10 }}>disponibile</span>}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmtDate(pr.data_inizio)} → {fmtDate(pr.data_fine)}</div>
                         </div>
