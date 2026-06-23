@@ -9,6 +9,7 @@ const PAGES = [
   { id: 'mappa',         label: 'Mappa',      icon: '🗺',  mobileTab: true  },
   { id: 'clienti',       label: 'Clienti',    icon: '👤', mobileTab: true  },
   { id: 'disponibilita', label: 'Dispon.',    icon: '🔍', mobileTab: false },
+  { id: 'storico',       label: 'Storico',    icon: '💰', mobileTab: false },
   { id: 'admin',         label: 'Gestione',   icon: '⚙️', mobileTab: false },
 ]
 

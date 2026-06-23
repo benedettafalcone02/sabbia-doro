@@ -31,6 +31,11 @@ function fmtDate(d) {
   return `${g}/${m}/${y}`
 }
 
+function abbrevNome(nome) {
+  if (!nome) return ''
+  return nome.trim().split(/\s+/)[0].slice(0, 5)
+}
+
 export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, onReload, role }) {
   const isAdmin = role === 'admin'
   const { postazioni, occupazioni, loading } = db
@@ -334,8 +339,15 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
               <div
                 className={`${styles.postazione} ${styles[cls]} ${getPostazioneClass(p, styles)} ${!isVisible(p) ? styles.hidden : ''}`}
                 onClick={() => isVisible(p) && setSelected(p.id)}
+                title={p.stato !== 'libero' ? (p.tipo_occupazione === 'subaffitto' ? (p.subaffittuario || p.cliente || '') : (p.cliente || '')) : ''}
+                style={p.stato !== 'libero' ? { flexDirection: 'column', gap: 1 } : undefined}
               >
-                {p.numero}
+                <span style={p.stato !== 'libero' ? { fontSize: 7, lineHeight: 1 } : undefined}>{p.numero}</span>
+                {p.stato !== 'libero' && (
+                  <span style={{ fontSize: 6, lineHeight: 1, overflow: 'hidden', maxWidth: '90%', whiteSpace: 'nowrap' }}>
+                    {abbrevNome(p.tipo_occupazione === 'subaffitto' ? (p.subaffittuario || p.cliente) : p.cliente)}
+                  </span>
+                )}
               </div>
             </Fragment>
           ))}
@@ -437,8 +449,15 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                         <div
                           className={`${styles.postazione} ${styles.palma} ${getPostazioneClass(p, styles)} ${!isVisible(p) ? styles.hidden : ''}`}
                           onClick={() => isVisible(p) && setSelected(p.id)}
+                          title={p.stato !== 'libero' ? (p.tipo_occupazione === 'subaffitto' ? (p.subaffittuario || p.cliente || '') : (p.cliente || '')) : ''}
+                          style={p.stato !== 'libero' ? { flexDirection: 'column', gap: 1 } : undefined}
                         >
-                          {p.numero}
+                          <span style={p.stato !== 'libero' ? { fontSize: 8, lineHeight: 1 } : undefined}>{p.numero}</span>
+                          {p.stato !== 'libero' && (
+                            <span style={{ fontSize: 7, lineHeight: 1, overflow: 'hidden', maxWidth: '90%', whiteSpace: 'nowrap' }}>
+                              {abbrevNome(p.tipo_occupazione === 'subaffitto' ? (p.subaffittuario || p.cliente) : p.cliente)}
+                            </span>
+                          )}
                         </div>
                       </Fragment>
                     ))}

@@ -16,6 +16,7 @@ import Disponibilita       from './pages/Disponibilita'
 import Calendario          from './pages/Calendario'
 import Admin               from './pages/Admin'
 import PrenotazionePublica from './pages/PrenotazionePublica'
+import StoricoPagements    from './pages/StoricoPagements'
 import Toast               from './components/Toast'
 
 export default function App() {
@@ -79,6 +80,7 @@ export default function App() {
       {isAdmin && page === 'disponibilita' && <Disponibilita  db={db} onNavigatePrenota={navigatePrenota} />}
       {isAdmin && page === 'calendario'   && <Calendario     db={db} />}
       {isAdmin && page === 'admin'         && <Admin          onReload={reload} />}
+      {isAdmin && page === 'storico'       && <StoricoPagements db={db} />}
 
       <Toast toast={toast} />
     </>

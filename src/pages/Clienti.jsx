@@ -164,13 +164,14 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
     const ids = postazioniCliente.map(p => p.occ_id).filter(Boolean)
     setSaving(true)
     try {
-      // telefono/email/note/nome su TUTTE le occupazioni del cliente (anche future)
+      // telefono/email/note/n_persone/nome su TUTTE le occupazioni del cliente (anche future)
       const { error: e1 } = await supabase.from('occupazioni')
         .update({
-          cliente:  nomeUpper,
-          telefono: editForm.telefono.trim() || null,
-          email:    editForm.email.trim()    || null,
-          note:     editForm.note.trim()     || null,
+          cliente:   nomeUpper,
+          telefono:  editForm.telefono.trim() || null,
+          email:     editForm.email.trim()    || null,
+          note:      editForm.note.trim()     || null,
+          n_persone: editForm.n_persone ? parseInt(editForm.n_persone) : null,
         })
         .eq('cliente', nomeVecchio)
       if (e1) throw e1

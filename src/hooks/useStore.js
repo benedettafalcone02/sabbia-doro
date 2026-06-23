@@ -72,7 +72,21 @@ export function useStore(skip = false) {
           }))
 
         if (!occOggi) {
-          return { ...p, stato: 'libero', cliente: null, lettini: 0, sdraio: 0, regista: 0, prenotazioni }
+          return {
+            ...p,
+            stato: 'libero',
+            occ_id: null,
+            cliente: null,
+            lettini: 0, sdraio: 0, regista: 0,
+            telefono: null, email: null, note: null,
+            data_inizio: null, data_fine: null,
+            acconto: null, prezzo_totale: null,
+            temporanea: false,
+            tipo_occupazione: null,
+            subaffittuario: null,
+            pagamenti: [],
+            prenotazioni,
+          }
         }
 
         return {
@@ -119,6 +133,13 @@ export function useStore(skip = false) {
             prezzo_totale: occ.prezzo_totale != null ? Number(occ.prezzo_totale) : null,
             postazioni_occ: [],
           }
+        } else {
+          // Aggiorna campi mancanti da altre righe dello stesso cliente
+          if (occ.note     && !clientiMap[key].note)     clientiMap[key].note     = occ.note
+          if (occ.telefono && !clientiMap[key].telefono) clientiMap[key].telefono = occ.telefono
+          if (occ.email    && !clientiMap[key].email)    clientiMap[key].email    = occ.email
+          if (occ.n_persone != null && clientiMap[key].n_persone == null)
+            clientiMap[key].n_persone = Number(occ.n_persone)
         }
         clientiMap[key].postazioni_occ.push({
           tipo:    occ.tipo,

@@ -36,6 +36,37 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
   const [approvandoId,     setApprovandoId]     = useState(null)
   const [approvandoNumero, setApprovandoNumero] = useState('')
 
+  const [editContact,   setEditContact]   = useState(null)
+  const [contactForm,   setContactForm]   = useState({ telefono: '', email: '', note: '' })
+  const [savingContact, setSavingContact] = useState(false)
+
+  function openContactEdit(o) {
+    setEditContact(o)
+    setContactForm({ telefono: o.telefono || '', email: o.email || '', note: o.note || '' })
+  }
+
+  async function handleSaveContact() {
+    if (!editContact) return
+    setSavingContact(true)
+    try {
+      const { error } = await supabase.from('occupazioni')
+        .update({
+          telefono: contactForm.telefono.trim() || null,
+          email:    contactForm.email.trim()    || null,
+          note:     contactForm.note.trim()     || null,
+        })
+        .eq('cliente', editContact.cliente)
+      if (error) throw error
+      showToast('Contatto aggiornato ✓')
+      setEditContact(null)
+      if (onReload) onReload()
+    } catch (err) {
+      console.error(err)
+      showToast('Errore nel salvataggio', 'error')
+    }
+    setSavingContact(false)
+  }
+
   function getPostazioniDisponibili(r) {
     const tipo  = r.tipo_postazione
     const tutte = postazioni.filter(p => p.tipo === tipo)
@@ -129,10 +160,12 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
       .sort((a, b) => b.saldo - a.saldo)
   }, [postazioni])
 
+  const EXCLUDE_TIPI = new Set(['disponibile', 'subaffitto_disponibile'])
+
   const arriviOggi = useMemo(() => {
     const t = today()
     return (occupazioni || [])
-      .filter(o => o.data_inizio === t)
+      .filter(o => o.data_inizio === t && !EXCLUDE_TIPI.has(o.tipo_occupazione))
       .map(o => {
         const pos = postazioni.find(p => p.tipo === o.tipo && Number(p.numero) === Number(o.numero))
         return { ...o, settore: pos?.settore || null }
@@ -143,7 +176,7 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
   const arriviDomani = useMemo(() => {
     const d = tomorrow()
     return (occupazioni || [])
-      .filter(o => o.data_inizio === d)
+      .filter(o => o.data_inizio === d && !EXCLUDE_TIPI.has(o.tipo_occupazione))
       .map(o => {
         const pos = postazioni.find(p => p.tipo === o.tipo && Number(p.numero) === Number(o.numero))
         return { ...o, settore: pos?.settore || null }
@@ -448,7 +481,9 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                     {o.tipo === 'palma' ? 'Palma' : 'Ombr.'} {o.numero}{o.settore ? ` S.${o.settore}` : ''} · fino al {fmtDate(o.data_fine)}
                   </div>
+                  {o.telefono && <div style={{ fontSize: 11, color: 'var(--sky)', marginTop: 1 }}>📱 {o.telefono}</div>}
                 </div>
+                <button onClick={() => openContactEdit(o)} title="Modifica contatto" style={{ width: 30, height: 30, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#f8fafc', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, padding: 0 }}>✏️</button>
                 <span className="badge badge-green" style={{ fontSize: 10, flexShrink: 0 }}>oggi</span>
               </div>
             ))}
@@ -472,7 +507,9 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                     {o.tipo === 'palma' ? 'Palma' : 'Ombr.'} {o.numero}{o.settore ? ` S.${o.settore}` : ''} · fino al {fmtDate(o.data_fine)}
                   </div>
+                  {o.telefono && <div style={{ fontSize: 11, color: 'var(--sky)', marginTop: 1 }}>📱 {o.telefono}</div>}
                 </div>
+                <button onClick={() => openContactEdit(o)} title="Modifica contatto" style={{ width: 30, height: 30, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#f8fafc', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, padding: 0 }}>✏️</button>
                 <span className="badge badge-yellow" style={{ fontSize: 10, flexShrink: 0 }}>domani</span>
               </div>
             ))}
@@ -501,8 +538,10 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.cliente || '—'}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmtDate(o.data_inizio)} → {fmtDate(o.data_fine)}</div>
+                      {o.telefono && <div style={{ fontSize: 10, color: 'var(--sky)', marginTop: 1 }}>📱 {o.telefono}</div>}
                     </div>
                     {o.temporanea && <span className="badge badge-yellow" style={{ fontSize: 10, flexShrink: 0 }}>temp</span>}
+                    <button onClick={() => openContactEdit(o)} title="Modifica contatto" style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#f8fafc', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, padding: 0 }}>✏️</button>
                   </div>
                 ))}
               </div>
@@ -648,6 +687,45 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
           </div>
         ))}
       </div>
+
+      {/* MODIFICA CONTATTO */}
+      {editContact && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setEditContact(null)}
+        >
+          <div
+            style={{ width: '100%', background: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', maxWidth: 480, margin: '0 auto' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 17, fontFamily: 'var(--font-display)' }}>Modifica contatto</div>
+              <button onClick={() => setEditContact(null)} style={{ background: 'none', border: 'none', fontSize: 24, color: 'var(--muted)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 18 }}>{editContact.cliente}</div>
+
+            <div className="form-group">
+              <label>Telefono</label>
+              <input type="tel" value={contactForm.telefono} onChange={e => setContactForm(f => ({ ...f, telefono: e.target.value }))} placeholder="+39 3xx..." />
+            </div>
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label>Note</label>
+              <textarea value={contactForm.note} onChange={e => setContactForm(f => ({ ...f, note: e.target.value }))} rows={2} style={{ fontSize: 14 }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditContact(null)}>Annulla</button>
+              <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', opacity: savingContact ? .7 : 1 }} onClick={handleSaveContact} disabled={savingContact}>
+                {savingContact ? '...' : 'Salva'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
