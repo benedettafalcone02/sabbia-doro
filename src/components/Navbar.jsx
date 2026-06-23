@@ -7,24 +7,23 @@ const PAGES = [
   { id: 'prenota',       label: 'Prenota',    icon: '➕', mobileTab: true  },
   { id: 'mappa',         label: 'Mappa',      icon: '🗺',  mobileTab: true  },
   { id: 'clienti',       label: 'Clienti',    icon: '👤', mobileTab: true  },
-  { id: 'disponibilita', label: 'Dispon.',    icon: '🔍', mobileTab: false },
-  { id: 'storico',       label: 'Storico',    icon: '💰', mobileTab: false },
-  { id: 'admin',         label: 'Gestione',   icon: '⚙️', mobileTab: false },
+  { id: 'disponibilita', label: 'Disponibilità', icon: '🔍', mobileTab: false },
+  { id: 'storico',       label: 'Storico',       icon: '💰', mobileTab: false },
+  { id: 'admin',         label: 'Gestione',      icon: '⚙️', mobileTab: false },
 ]
 
 export default function Navbar({ activePage, onNavigate, onLogout, role }) {
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const visibili = role === 'spiaggista'
     ? PAGES.filter(p => p.id === 'mappa' || p.id === 'clienti')
     : PAGES
 
   const mobileTabs = visibili.filter(p => p.mobileTab)
-  const morePages  = visibili.filter(p => !p.mobileTab)
-  const moreIsActive = morePages.some(p => p.id === activePage)
+  const menuPages  = visibili.filter(p => !p.mobileTab)
 
   function handleNavigate(id) {
-    setMoreOpen(false)
+    setMenuOpen(false)
     onNavigate(id)
   }
 
@@ -48,51 +47,81 @@ export default function Navbar({ activePage, onNavigate, onLogout, role }) {
           ))}
         </div>
 
-        {role !== 'spiaggista' && <button className={styles.logoutBtn} onClick={onLogout}>Esci</button>}
+        {/* Desktop: solo Esci */}
+        {role !== 'spiaggista' && (
+          <button className={`${styles.logoutBtn} ${styles.desktopOnly}`} onClick={onLogout}>Esci</button>
+        )}
+
+        {/* Mobile: menu ⋮ */}
+        {role !== 'spiaggista' && (
+          <div style={{ position: 'relative', marginLeft: 'auto' }} className={styles.mobileOnly}>
+            <button
+              className={styles.menuBtn}
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Menu"
+            >
+              ⋮
+            </button>
+
+            {menuOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 299 }}
+                  onClick={() => setMenuOpen(false)}
+                />
+                {/* Dropdown */}
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 300,
+                  background: '#fff', borderRadius: 14,
+                  boxShadow: '0 8px 32px rgba(0,0,0,.16)',
+                  border: '1px solid #f0f0f0',
+                  minWidth: 200, overflow: 'hidden',
+                }}>
+                  {menuPages.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleNavigate(p.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        width: '100%', padding: '14px 16px',
+                        background: activePage === p.id ? '#f0f4ff' : 'none',
+                        border: 'none',
+                        borderBottom: i < menuPages.length - 1 ? '1px solid #f5f5f5' : 'none',
+                        cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        fontSize: 15, fontWeight: activePage === p.id ? 700 : 500,
+                        color: activePage === p.id ? 'var(--navy)' : 'var(--text)',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: 20 }}>{p.icon}</span>
+                      {p.label}
+                    </button>
+                  ))}
+                  {/* Separatore + Esci */}
+                  <button
+                    onClick={() => { setMenuOpen(false); onLogout() }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      width: '100%', padding: '14px 16px',
+                      background: 'none', border: 'none',
+                      borderTop: '1.5px solid #f0f0f0',
+                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      fontSize: 15, fontWeight: 500,
+                      color: 'var(--red)', textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: 20 }}>🚪</span>
+                    Esci
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </nav>
 
-      {/* Overlay "Altro" su mobile */}
-      {moreOpen && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 199 }}
-          onClick={() => setMoreOpen(false)}
-        >
-          <div
-            style={{
-              position: 'fixed', bottom: 'calc(68px + env(safe-area-inset-bottom))',
-              left: 0, right: 0, zIndex: 200,
-              background: '#fff',
-              borderRadius: '16px 16px 0 0',
-              boxShadow: '0 -4px 24px rgba(0,0,0,.14)',
-              borderTop: '1px solid #f0f0f0',
-              padding: '8px 12px 4px',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ width: 36, height: 4, background: '#e0e0e0', borderRadius: 2, margin: '0 auto 12px' }} />
-            {morePages.map(p => (
-              <button
-                key={p.id}
-                onClick={() => handleNavigate(p.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  width: '100%', padding: '14px 8px',
-                  background: activePage === p.id ? '#f0f4ff' : 'none',
-                  border: 'none', borderRadius: 12,
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
-                  fontSize: 15, fontWeight: activePage === p.id ? 700 : 500,
-                  color: activePage === p.id ? 'var(--navy)' : 'var(--text)',
-                  borderBottom: '1px solid #f5f5f5',
-                }}
-              >
-                <span style={{ fontSize: 22, width: 32, textAlign: 'center' }}>{p.icon}</span>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Bottom tab bar — solo 5 tab principali */}
       <div className={styles.mobileNav}>
         {mobileTabs.map(p => (
           <button
@@ -106,18 +135,6 @@ export default function Navbar({ activePage, onNavigate, onLogout, role }) {
             <span className={styles.mobileLabel}>{p.label}</span>
           </button>
         ))}
-
-        {morePages.length > 0 && (
-          <button
-            className={`${styles.mobileTab} ${(moreIsActive || moreOpen) ? styles.active : ''}`}
-            onClick={() => setMoreOpen(o => !o)}
-          >
-            <div className={styles.mobileIconWrap}>
-              <span className={styles.mobileIcon} style={{ fontSize: 18, letterSpacing: -1 }}>···</span>
-            </div>
-            <span className={styles.mobileLabel}>Altro</span>
-          </button>
-        )}
       </div>
       <div className={styles.bodyPad} />
     </>
