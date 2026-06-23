@@ -47,10 +47,16 @@ function PrenotaCard({ o }) {
         {nomeDisplay || '—'}
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: o.prezzo_totale != null ? 6 : 0 }}>
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: (o.note || o.prezzo_totale != null) ? 6 : 0 }}>
         {fmtShort(o.data_inizio)} → {fmtShort(o.data_fine)}
         {equip ? ` · ${equip}` : ''}
       </div>
+
+      {o.note && (
+        <div style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', marginBottom: o.prezzo_totale != null ? 6 : 0 }}>
+          📝 {o.note}
+        </div>
+      )}
 
       {o.prezzo_totale != null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -164,7 +170,7 @@ export default function Calendario({ db }) {
       {/* Calendar grid */}
       <div className="card" style={{ padding: '10px 6px', marginBottom: 16 }}>
         {/* Weekday headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', marginBottom: 4 }}>
           {WEEKDAYS.map((wd, i) => (
             <div key={i} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)', padding: '2px 0' }}>
               {wd}
@@ -172,7 +178,7 @@ export default function Calendario({ db }) {
           ))}
         </div>
         {/* Day cells */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 2 }}>
           {calDays.map((day, idx) => {
             if (!day) return <div key={idx} />
             const s = toStr(year, month, day)
@@ -186,33 +192,36 @@ export default function Calendario({ db }) {
                 style={{
                   cursor: 'pointer',
                   borderRadius: 8,
-                  padding: '4px 2px',
+                  padding: '4px 1px',
                   textAlign: 'center',
                   background: isSel ? 'var(--navy)' : 'transparent',
                   border: isToday && !isSel ? '2px solid var(--navy)' : '2px solid transparent',
-                  minHeight: 54,
+                  minHeight: 52,
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 3,
+                  gap: 2,
+                  overflow: 'hidden',
                 }}
               >
                 <div style={{ fontSize: 13, fontWeight: isSel || isToday ? 700 : 500, color: isSel ? '#fff' : 'var(--navy)' }}>
                   {day}
                 </div>
-                <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center', width: '100%' }}>
                   {arrivi > 0 && (
                     <span style={{
-                      fontSize: 9, fontWeight: 700, lineHeight: 1.5, padding: '0 3px', borderRadius: 3,
+                      fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: '0 2px', borderRadius: 3,
                       background: isSel ? 'rgba(255,255,255,.25)' : '#dcfce7',
                       color: isSel ? '#fff' : '#15803d',
+                      whiteSpace: 'nowrap',
                     }}>▶{arrivi}</span>
                   )}
                   {partenze > 0 && (
                     <span style={{
-                      fontSize: 9, fontWeight: 700, lineHeight: 1.5, padding: '0 3px', borderRadius: 3,
+                      fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: '0 2px', borderRadius: 3,
                       background: isSel ? 'rgba(255,255,255,.25)' : '#fef3c7',
                       color: isSel ? '#fff' : '#b45309',
+                      whiteSpace: 'nowrap',
                     }}>◀{partenze}</span>
                   )}
                 </div>

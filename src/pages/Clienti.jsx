@@ -368,6 +368,9 @@ export default function Clienti({ db, onNavigate, showToast, onReload, role }) {
                       }).filter(Boolean).join(' · ')}
                     </div>
                   )}
+                  {c.note && (
+                    <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>📝 {c.note}</div>
+                  )}
                   {isAdmin && (c.acconto != null || c.prezzo_totale != null) && (
                     <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {c.acconto != null && (

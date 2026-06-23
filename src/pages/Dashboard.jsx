@@ -482,6 +482,7 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
                     {o.tipo === 'palma' ? 'Palma' : 'Ombr.'} {o.numero}{o.settore ? ` S.${o.settore}` : ''} · fino al {fmtDate(o.data_fine)}
                   </div>
                   {o.telefono && <div style={{ fontSize: 11, color: 'var(--sky)', marginTop: 1 }}>📱 {o.telefono}</div>}
+                  {o.note && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1, fontStyle: 'italic' }}>📝 {o.note}</div>}
                 </div>
                 <button onClick={() => openContactEdit(o)} title="Modifica contatto" style={{ width: 30, height: 30, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#f8fafc', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, padding: 0 }}>✏️</button>
                 <span className="badge badge-green" style={{ fontSize: 10, flexShrink: 0 }}>oggi</span>
@@ -508,6 +509,7 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
                     {o.tipo === 'palma' ? 'Palma' : 'Ombr.'} {o.numero}{o.settore ? ` S.${o.settore}` : ''} · fino al {fmtDate(o.data_fine)}
                   </div>
                   {o.telefono && <div style={{ fontSize: 11, color: 'var(--sky)', marginTop: 1 }}>📱 {o.telefono}</div>}
+                  {o.note && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1, fontStyle: 'italic' }}>📝 {o.note}</div>}
                 </div>
                 <button onClick={() => openContactEdit(o)} title="Modifica contatto" style={{ width: 30, height: 30, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#f8fafc', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, padding: 0 }}>✏️</button>
                 <span className="badge badge-yellow" style={{ fontSize: 10, flexShrink: 0 }}>domani</span>
@@ -539,6 +541,7 @@ export default function Dashboard({ db, onNavigate, showToast, onReload }) {
                       <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.cliente || '—'}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmtDate(o.data_inizio)} → {fmtDate(o.data_fine)}</div>
                       {o.telefono && <div style={{ fontSize: 10, color: 'var(--sky)', marginTop: 1 }}>📱 {o.telefono}</div>}
+                      {o.note && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1, fontStyle: 'italic' }}>📝 {o.note}</div>}
                     </div>
                     {o.temporanea && <span className="badge badge-yellow" style={{ fontSize: 10, flexShrink: 0 }}>temp</span>}
                     <button onClick={() => openContactEdit(o)} title="Modifica contatto" style={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px solid #e2e8f0', background: '#f8fafc', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, padding: 0 }}>✏️</button>
