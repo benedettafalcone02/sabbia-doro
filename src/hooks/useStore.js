@@ -68,6 +68,7 @@ export function useStore(skip = false) {
             sdraio:           Number(o.sdraio)   || 0,
             regista:          Number(o.regista)  || 0,
             prezzo_totale:    o.prezzo_totale != null ? Number(o.prezzo_totale) : null,
+            note:             o.note            || null,
             pagamenti:        pagData.filter(pg => pg.occupazione_id === o.id),
           }))
 

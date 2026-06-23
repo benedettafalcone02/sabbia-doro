@@ -752,6 +752,13 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                     ))}
                   </div>
                 )}
+
+                {/* Note prenotazione */}
+                {selPost.note && (
+                  <div style={{ borderTop: '1px solid #dde8ff', marginTop: 10, paddingTop: 10, fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
+                    📝 {selPost.note}
+                  </div>
+                )}
               </div>
             )}
 
@@ -801,6 +808,9 @@ export default function Mappa({ db, onNavigate, onNavigatePrenota, showToast, on
                             {(pr.tipo_occupazione === 'disponibile' || pr.tipo_occupazione === 'subaffitto_disponibile') && <span className="badge badge-sky" style={{ fontSize: 10 }}>disponibile</span>}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmtDate(pr.data_inizio)} → {fmtDate(pr.data_fine)}</div>
+                          {pr.note && (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', marginTop: 2 }}>📝 {pr.note}</div>
+                          )}
                         </div>
                         {isAdmin && (
                           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
